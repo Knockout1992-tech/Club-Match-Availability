@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#123b2a">
+    <title>Match Availability | Rushden & Higham RUFC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <div class="club-name">RUSHDEN & HIGHAM RUFC</div>
+            <div class="header-subtitle">MATCH AVAILABILITY</div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="loading" class="panel">
+            <p>Loading fixture details...</p>
+        </section>
+
+        <section id="fixture" class="panel" hidden>
+            <p class="eyebrow">UPCOMING FIXTURE</p>
+            <h1 id="opposition"></h1>
+            <div id="fixture-details"></div>
+        </section>
+
+        <section id="availability-form" class="panel" hidden>
+            <h2>Player availability</h2>
+            <p>Please tell us whether your child or children can attend.</p>
+            <div id="children"></div>
+        </section>
+
+        <section id="message" class="panel" hidden></section>
+    </main>
+
+    <footer>
+        <p>Rushden & Higham Rugby Union Football Club</p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
