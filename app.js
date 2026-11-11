@@ -210,8 +210,8 @@ submissionForm.addEventListener("submit", async event => {
 
     const parentName = document.getElementById("parent-name").value.trim();
 
-    if (!parentName || !parentContact) {
-        alert("Please enter your name and contact details.");
+    if (!parentName) {
+        alert("Please enter your name.");
         return;
     }
 
@@ -244,7 +244,6 @@ submissionForm.addEventListener("submit", async event => {
             body: JSON.stringify({
                 fixture_token: fixtureToken,
                 parent_name: parentName,
-                parent_contact: parentContact,
                 children
             })
         });
