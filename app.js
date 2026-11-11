@@ -209,7 +209,6 @@ submissionForm.addEventListener("submit", async event => {
     }
 
     const parentName = document.getElementById("parent-name").value.trim();
-    const parentContact = document.getElementById("parent-contact").value.trim();
 
     if (!parentName || !parentContact) {
         alert("Please enter your name and contact details.");
