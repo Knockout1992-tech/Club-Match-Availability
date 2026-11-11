@@ -28,10 +28,29 @@
         </section>
 
         <section id="availability-form" class="panel" hidden>
-            <h2>Player availability</h2>
-            <p>Please tell us whether your child or children can attend.</p>
-            <div id="children"></div>
-        </section>
+    <h2>Player availability</h2>
+    <p>Please provide your details and tell us whether your child or children can attend.</p>
+
+    <form id="submission-form">
+        <div class="form-group">
+            <label for="parent-name">Parent / Guardian name</label>
+            <input type="text" id="parent-name" required maxlength="100">
+        </div>
+
+        <div class="form-group">
+            <label for="parent-contact">Contact details (email or phone)</label>
+            <input type="text" id="parent-contact" maxlength="150">
+        </div>
+
+        <div id="children"></div>
+
+        <button type="button" id="add-child">+ Add another child</button>
+
+        <button type="submit" id="submit-button">
+            Submit availability
+        </button>
+    </form>
+</section>
 
         <section id="message" class="panel" hidden></section>
     </main>
