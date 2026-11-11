@@ -105,3 +105,96 @@ footer {
         font-size: 17px;
     }
 }
+
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label,
+.child-card label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 7px;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid #ccd5ce;
+    border-radius: 7px;
+    font-size: 16px;
+    background: white;
+    color: var(--text);
+}
+
+.child-card {
+    border: 1px solid #dce4de;
+    border-left: 4px solid var(--club-green);
+    border-radius: 9px;
+    padding: 18px;
+    margin: 20px 0;
+}
+
+.child-card h3 {
+    margin-top: 0;
+    color: var(--club-green);
+}
+
+.child-card .form-group {
+    margin-bottom: 15px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 12px;
+}
+
+#add-child {
+    background: #e8eee9;
+    color: var(--club-green);
+}
+
+#submit-button {
+    background: var(--club-green);
+    color: white;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.remove-child {
+    background: #f8e9e9;
+    color: #963b3b;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.success-message {
+    color: var(--club-green);
+    font-weight: 700;
+}
+
+.error-message {
+    color: #a32626;
+    font-weight: 700;
+}
+
+.edit-link {
+    overflow-wrap: anywhere;
+    padding: 12px;
+    background: #f3f5f3;
+    border-radius: 7px;
+    display: block;
+    margin: 12px 0;
+}
+
