@@ -256,10 +256,6 @@ submissionForm.addEventListener("submit", async event => {
             throw new Error(result.error || "Unable to submit availability.");
         }
 
-        const editUrl = new URL(window.location.href);
-        editUrl.searchParams.delete("fixture");
-        editUrl.searchParams.set("edit", result.edit_token);
-
         loading.hidden = true;
         fixtureSection.hidden = true;
         availabilityForm.hidden = true;
@@ -268,24 +264,8 @@ submissionForm.addEventListener("submit", async event => {
         message.innerHTML = `
             <h2 class="success-message">Availability submitted!</h2>
             <p>Thank you. Your response has been recorded.</p>
-            <p>You can use the private link below to amend your response later. Please keep it safe.</p>
-            <a class="edit-link" href="${escapeHTML(editUrl.href)}">
-                ${escapeHTML(editUrl.href)}
-            </a>
-            <button type="button" id="copy-edit-link">
-                Copy my edit link
-            </button>
+            <p>Your coach will use these responses to help plan the fixture.</p>
         `;
-
-        document.getElementById("copy-edit-link").addEventListener("click", async () => {
-            try {
-                await navigator.clipboard.writeText(editUrl.href);
-                document.getElementById("copy-edit-link").textContent = "Link copied!";
-            } catch {
-                document.getElementById("copy-edit-link").textContent =
-                    "Please copy the link above.";
-            }
-        });
 
     } catch (error) {
         console.error("Submission failed:", error);
