@@ -9,9 +9,43 @@ function hide(){[loading,home,events,fixtureBox,formBox,message].forEach(x=>x.hi
 function showMessage(t,err=false){hide();message.hidden=false;message.textContent=t;message.className=err?"panel error-message":"panel";}
 async function post(url,data){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const j=await r.json();if(!r.ok||j.success===false)throw Error(j.error||"Unable to complete request.");return j;}
 function showHome(){hide();home.hidden=false;el("lookup-parent-name").value=parentName;}
-async function loadHome(name){parentName=name.trim();hide();loading.hidden=false;try{const r=await post(URLS.home,{parent_name:parentName});parentFixtures=r.fixtures||[];renderEvents();}catch(e){showMessage(e.message,true);}}
-function renderEvents(){hide();events.hidden=false;el("welcome-heading").textContent="Welcome, "+parentName;el("events-list").innerHTML="";if(!parentFixtures.length){el("events-list").innerHTML='<div class="panel">There are no upcoming fixtures currently open for responses.</div>';return;}
-parentFixtures.forEach(f=>{const s=f.submission;const card=document.createElement("article");card.className="panel event-card";const ag=(f.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");card.innerHTML='<p class="eyebrow">'+(f.fixture_type==="home"?"Home fixture":"Away fixture")+'</p><h2>'+esc(f.opposition)+'</h2><p><strong>'+date(f.fixture_date)+'</strong></p>'+(f.kick_off_time?'<p>Kick-off: '+esc(f.kick_off_time.slice(0,5))+'</p>':"")+(f.venue?'<p>Venue: '+esc(f.venue)+'</p>':"")+(f.venue_address?'<p>'+esc(f.venue_address)+'</p>':"")+(f.response_deadline?'<p>Responses by: '+date(f.response_deadline)+'</p>':"")+'<p class="event-groups">Age groups: '+esc(ag||"—")+'</p><p><span class="response-status '+(s?"status-done":"status-pending")+'">'+(s?"Response recorded":"Awaiting your response")+'</span></p><button type="button">'+(s?"View / update response":"Submit availability")+'</button>';card.querySelector("button").addEventListener("click",()=>s?editResponse(f,s):newResponse(f));el("events-list").appendChild(card);});}
+async function loadHome(name){parentName=name.trim();hide();loading.hidden=false;try{const r=await post(URLS.home,{parent_name:parentName});parentFixtures=r.fixtures||[];window.parentCalendarEvents=r.calendar_events||[];renderEvents();}catch(e){showMessage(e.message,true);}}
+function renderEvents(){
+hide();events.hidden=false;
+el("welcome-heading").textContent="Welcome, "+parentName;
+el("events-list").innerHTML="";
+const calendar=window.parentCalendarEvents||[];
+const linkedIds=new Set(calendar.map(e=>Number(e.fixture?.id)).filter(Boolean));
+const cards=[];
+calendar.forEach(e=>{
+ const f=e.fixture;
+ const type=({training:"Training",match:e.match_location==="away"?"Away match":"Home match",other:"Other event",holiday:"Holiday / break",cancelled:"Cancelled"})[e.event_type]||"Club event";
+ const age=(e.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
+ const title=e.event_type==="match"?(e.opposition||e.title):e.title;
+ const canRespond=e.availability_enabled===true&&f&&f.fixture_token;
+ const card=document.createElement("article");card.className="panel event-card calendar-event calendar-"+e.event_type;
+ card.innerHTML='<p class="eyebrow">'+esc(type)+'</p><h2>'+esc(title)+'</h2><p><strong>'+date(e.event_date)+'</strong></p>'+
+ (e.start_time?'<p>'+esc(e.start_time.slice(0,5))+(e.end_time?' – '+esc(e.end_time.slice(0,5)):'')+'</p>':'')+
+ (e.venue?'<p>Venue: '+esc(e.venue)+'</p>':'')+
+ '<p class="event-groups">Age groups: '+esc(age||"—")+'</p>'+
+ (e.notes?'<p>'+esc(e.notes)+'</p>':'')+
+ (e.event_type==="cancelled"?'<p class="response-status status-pending">Cancelled</p>':
+  (canRespond?'<p><span class="response-status '+(f.submission?"status-done":"status-pending")+'">'+(f.submission?"Response recorded":"Availability requested")+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
+  '<p class="event-groups">'+(e.event_type==="holiday"?"No availability required":(e.availability_enabled?"Availability link not yet available":"No availability requested"))+'</p>'));
+ if(canRespond)card.querySelector("button").addEventListener("click",()=>f.submission?editResponse(f,f.submission):newResponse(f));
+ cards.push(card);
+});
+(parentFixtures||[]).filter(f=>!linkedIds.has(Number(f.id))).forEach(f=>{
+ const sub=f.submission,card=document.createElement("article");card.className="panel event-card";
+ const ag=(f.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
+ card.innerHTML='<p class="eyebrow">'+(f.fixture_type==="home"?"Home fixture":"Away fixture")+'</p><h2>'+esc(f.opposition)+'</h2><p><strong>'+date(f.fixture_date)+'</strong></p>'+
+ (f.kick_off_time?'<p>Kick-off: '+esc(f.kick_off_time.slice(0,5))+'</p>':"")+(f.venue?'<p>Venue: '+esc(f.venue)+'</p>':"")+
+ '<p class="event-groups">Age groups: '+esc(ag||"—")+'</p><p><span class="response-status '+(sub?"status-done":"status-pending")+'">'+(sub?"Response recorded":"Awaiting your response")+'</span></p><button type="button">'+(sub?"View / update response":"Submit availability")+'</button>';
+ card.querySelector("button").addEventListener("click",()=>sub?editResponse(f,sub):newResponse(f));cards.push(card);
+});
+if(!cards.length){el("events-list").innerHTML='<div class="panel">There are no upcoming events scheduled for the current season.</div>';return;}
+cards.forEach(card=>el("events-list").appendChild(card));
+}
 el("parent-lookup-form").addEventListener("submit",async e=>{e.preventDefault();const b=el("lookup-button");b.disabled=true;b.textContent="Loading...";await loadHome(el("lookup-parent-name").value);b.disabled=false;b.textContent="Continue";});
 el("change-name").addEventListener("click",showHome);
 function showFixture(data){const f=data.fixture;el("opposition").textContent=f.opposition;let d='<p><strong>'+date(f.fixture_date)+'</strong></p><p>'+(f.fixture_type==="home"?"Home fixture":"Away fixture")+'</p>';if(f.kick_off_time)d+='<p>Kick-off: '+esc(f.kick_off_time.slice(0,5))+'</p>';if(f.venue)d+='<p>Venue: '+esc(f.venue)+'</p>';if(f.venue_address)d+='<p>'+esc(f.venue_address)+'</p>';if(f.response_deadline)d+='<p>Responses requested by: '+date(f.response_deadline)+'</p>';el("fixture-details").innerHTML=d;fixtureBox.hidden=false;formBox.hidden=false;}
