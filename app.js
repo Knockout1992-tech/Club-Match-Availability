@@ -15,10 +15,11 @@ hide();events.hidden=false;
 el("welcome-heading").textContent="Welcome, "+parentName;
 el("events-list").innerHTML="";
 const calendar=window.parentCalendarEvents||[];
-const linkedIds=new Set(calendar.map(e=>Number(e.fixture?.id)).filter(Boolean));
+const fixtureById=new Map((parentFixtures||[]).map(f=>[Number(f.id),f]));
+const linkedIds=new Set(calendar.map(e=>Number(e.fixture_id||e.fixture?.id)).filter(Boolean));
 const cards=[];
 calendar.forEach(e=>{
- const f=e.fixture;
+ const f=e.fixture || fixtureById.get(Number(e.fixture_id)) || null;
  const type=({training:"Training",match:e.match_location==="away"?"Away match":"Home match",other:"Other event",holiday:"Holiday / break",cancelled:"Cancelled"})[e.event_type]||"Club event";
  const age=(e.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  const title=e.event_type==="match"?(e.opposition||e.title):e.title;
