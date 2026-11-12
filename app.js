@@ -40,11 +40,11 @@ calendar.forEach(e=>{
  card.innerHTML='<p class="eyebrow">'+esc(type)+'</p><h2>'+esc(title)+'</h2><p><strong>'+date(e.event_date)+'</strong></p>'+
  (e.start_time?'<p>'+esc(e.start_time.slice(0,5))+(e.end_time?' – '+esc(e.end_time.slice(0,5)):'')+'</p>':'')+
  (e.venue?'<p>Venue: '+esc(e.venue)+'</p>':'')+
- '<p class="event-groups">Age groups: '+esc(age||"—")+'</p>'+
+ (e.event_type==="holiday"?"":'<p class="event-groups">Age groups: '+esc(age||"—")+'</p>')+
  (e.notes?'<p>'+esc(e.notes)+'</p>':'')+
- (e.event_type==="cancelled"?'<p class="response-status status-pending">Cancelled</p>':
+ (e.event_type==="holiday"?"":(e.event_type==="cancelled"?'<p class="response-status status-pending">Cancelled</p>':
   (canRespond?'<p><span class="response-status '+(f.submission?"status-done":"status-pending")+'">'+(f.submission?"Response recorded":"Availability requested")+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
-  '<p class="event-groups">'+(e.event_type==="holiday"?"No availability required":(e.availability_enabled?"Availability link not yet available":"No availability requested"))+'</p>'));
+  '<p class="event-groups">'+(e.availability_enabled?"Availability link not yet available":"No availability requested")+'</p>')));
  if(canRespond)card.querySelector("button").addEventListener("click",()=>f.submission?editResponse(f,f.submission):newResponse(f));
  cards.push(card);
 });
