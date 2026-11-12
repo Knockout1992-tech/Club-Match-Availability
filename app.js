@@ -19,7 +19,17 @@ const fixtureById=new Map((parentFixtures||[]).map(f=>[Number(f.id),f]));
 const linkedIds=new Set(calendar.map(e=>Number(e.fixture_id||e.fixture?.id)).filter(Boolean));
 const cards=[];
 calendar.forEach(e=>{
- const f=e.fixture || fixtureById.get(Number(e.fixture_id)) || null;
+ const f=e.fixture || fixtureById.get(Number(e.fixture_id)) || (e.fixture_token ? {
+  id:Number(e.fixture_id || 0),
+  fixture_token:e.fixture_token,
+  opposition:e.opposition || e.title,
+  fixture_date:e.event_date,
+  fixture_type:e.match_location==="away"?"away":"home",
+  kick_off_time:e.start_time,
+  venue:e.venue,
+  age_groups:e.age_groups || [],
+  submission:null
+ } : null);
  const type=({training:"Training",match:e.match_location==="away"?"Away match":"Home match",other:"Other event",holiday:"Holiday / break",cancelled:"Cancelled"})[e.event_type]||"Club event";
  const age=(e.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  const title=e.event_type==="match"?(e.opposition||e.title):e.title;
