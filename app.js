@@ -19,9 +19,11 @@ const fixtureById=new Map((parentFixtures||[]).map(f=>[Number(f.id),f]));
 const linkedIds=new Set(calendar.map(e=>Number(e.fixture_id||e.fixture?.id)).filter(Boolean));
 const cards=[];
 calendar.forEach(e=>{
- const f=e.fixture || fixtureById.get(Number(e.fixture_id)) || (e.fixture_token ? {
+ const linkedFixture=e.fixture || fixtureById.get(Number(e.fixture_id)) || null;
+ const fixtureToken=e.fixture_token || linkedFixture?.fixture_token || null;
+ const f=linkedFixture ? {...linkedFixture,fixture_token:fixtureToken} : (fixtureToken ? {
   id:Number(e.fixture_id || 0),
-  fixture_token:e.fixture_token,
+  fixture_token:fixtureToken,
   opposition:e.opposition || e.title,
   fixture_date:e.event_date,
   fixture_type:e.match_location==="away"?"away":"home",
@@ -33,7 +35,7 @@ calendar.forEach(e=>{
  const type=({training:"Training",match:e.match_location==="away"?"Away match":"Home match",other:"Other event",holiday:"Holiday / break",cancelled:"Cancelled"})[e.event_type]||"Club event";
  const age=(e.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  const title=e.event_type==="match"?(e.opposition||e.title):e.title;
- const canRespond=e.availability_enabled===true&&f&&f.fixture_token;
+ const canRespond=e.availability_enabled!==false&&e.event_type!=="holiday"&&e.event_type!=="cancelled"&&!!f?.fixture_token;
  const card=document.createElement("article");card.className="panel event-card calendar-event calendar-"+e.event_type;
  card.innerHTML='<p class="eyebrow">'+esc(type)+'</p><h2>'+esc(title)+'</h2><p><strong>'+date(e.event_date)+'</strong></p>'+
  (e.start_time?'<p>'+esc(e.start_time.slice(0,5))+(e.end_time?' – '+esc(e.end_time.slice(0,5)):'')+'</p>':'')+
