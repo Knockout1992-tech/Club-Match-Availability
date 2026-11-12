@@ -272,3 +272,11 @@ footer {
 .response-status{display:inline-block;padding:5px 10px;border-radius:20px;font-size:13px;font-weight:700}
 .status-done{background:#e5f3e9;color:#14532d}.status-pending{background:#fff3cd;color:#765600}
 .secondary-button{background:#e5e5e5;color:#111}input[readonly],select:disabled{background:#f1f1f1;color:#555}
+
+/* CURRENT SEASON CALENDAR */
+.calendar-event{border-left:5px solid #777}
+.calendar-match{border-left-color:#2f855a}
+.calendar-training{border-left-color:#805ad5}
+.calendar-other{border-left-color:#dd8b32}
+.calendar-holiday{border-left-color:#d6a928}
+.calendar-cancelled{border-left-color:#999;opacity:.78}
