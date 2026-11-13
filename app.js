@@ -66,7 +66,7 @@ calendar.forEach(e=>{
  const age=(e.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  const title=e.event_type==="match"?(e.opposition||e.title):e.title;
  const canRespond=e.availability_enabled!==false&&e.event_type!=="holiday"&&e.event_type!=="cancelled"&&!!f?.fixture_token;
- const card=document.createElement("article");const eventClass=e.event_type==="match"?(e.match_location==="away"?"calendar-match-away":"calendar-match-home"):"calendar-"+e.event_type;card.className="panel event-card calendar-event "+eventClass;card.dataset.responseState=canRespond?(f.submission?"responded":"needed"):"none";card.dataset.eventDate=String(e.event_date||"");
+ const card=document.createElement("article");const eventClass=e.event_type==="match"?(e.match_location==="away"?"calendar-match-away":"calendar-match-home"):"calendar-"+e.event_type;card.className="panel event-card calendar-event "+eventClass;card.dataset.responseState=canRespond?(f.submission?"responded":"needed"):"none";card.dataset.eventDate=String(e.event_date||"");card.dataset.optionKey=String(e.event_date||"")+"|"+String(title||"").trim().toLowerCase();card.dataset.ageGroupKey=(e.age_groups||[]).map(g=>String(g.id||g.age_group_id||g.display_name||g.age_group||"").trim().toLowerCase()).sort().join("|");
  card.innerHTML='<p class="eyebrow">'+esc(type)+'</p><h2>'+esc(title)+'</h2><p><strong>'+date(e.event_date)+'</strong></p>'+
  (e.start_time?'<p>'+esc(e.start_time.slice(0,5))+(e.end_time?' – '+esc(e.end_time.slice(0,5)):'')+'</p>':'')+
  (e.venue?'<p>Venue: '+esc(e.venue)+'</p><p><a class="maps-link" href="'+esc(mapsUrl(e.venue))+'" target="_blank" rel="noopener">Open in Google Maps</a></p>':'')+
@@ -79,13 +79,16 @@ calendar.forEach(e=>{
  cards.push(card);
 });
 (parentFixtures||[]).filter(f=>!linkedIds.has(Number(f.id))).forEach(f=>{
- const sub=f.submission,card=document.createElement("article");card.className="panel event-card calendar-event "+(f.fixture_type==="away"?"calendar-match-away":"calendar-match-home");card.dataset.responseState=sub?"responded":"needed";card.dataset.eventDate=String(f.fixture_date||"");
+ const sub=f.submission,card=document.createElement("article");card.className="panel event-card calendar-event "+(f.fixture_type==="away"?"calendar-match-away":"calendar-match-home");card.dataset.responseState=sub?"responded":"needed";card.dataset.eventDate=String(f.fixture_date||"");card.dataset.optionKey=String(f.fixture_date||"")+"|"+String(f.opposition||"").trim().toLowerCase();card.dataset.ageGroupKey=(f.age_groups||[]).map(g=>String(g.id||g.age_group_id||g.display_name||g.age_group||"").trim().toLowerCase()).sort().join("|");
  const ag=(f.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  card.innerHTML='<p class="eyebrow">'+(f.fixture_type==="home"?"Home fixture":"Away fixture")+'</p><h2>'+esc(f.opposition)+'</h2><p><strong>'+date(f.fixture_date)+'</strong></p>'+
  (f.kick_off_time?'<p>Kick-off: '+esc(f.kick_off_time.slice(0,5))+'</p>':"")+(f.venue?'<p>Venue: '+esc(f.venue)+'</p><p><a class="maps-link" href="'+esc(mapsUrl(f.venue))+'" target="_blank" rel="noopener">Open in Google Maps</a></p>':"")+
  '<p class="event-groups">Age groups: '+esc(ag||"—")+'</p><p><span class="response-status '+(sub?"status-done":"status-pending")+'">'+(sub?"Response recorded":"Awaiting your response")+'</span></p><button type="button">'+(sub?"View / update response":"Submit availability")+'</button>';
  card.querySelector("button").addEventListener("click",()=>sub?editResponse(f,sub):newResponse(f));cards.push(card);
 });
+const optionGroups=new Map();
+cards.forEach(card=>{if(!card.dataset.optionKey)return;const group=optionGroups.get(card.dataset.optionKey)||[];group.push(card);optionGroups.set(card.dataset.optionKey,group);});
+optionGroups.forEach(group=>{const ageSets=new Set(group.map(card=>card.dataset.ageGroupKey));if(group.length>1&&ageSets.size>1)group.forEach(card=>{const ageLine=card.querySelector(".event-groups");if(ageLine)ageLine.classList.add("event-groups-different");});});
 cards.sort((a,b)=>Date.parse(a.dataset.eventDate+"T12:00:00")-Date.parse(b.dataset.eventDate+"T12:00:00"));
 parentHomeCards=cards;
 cards.forEach(card=>el("events-list").appendChild(card));
