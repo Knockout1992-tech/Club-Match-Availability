@@ -286,8 +286,14 @@ footer {
 .form-feedback{padding:11px 13px;margin:10px 0 14px;border-radius:9px;background:#f8d7da;color:#842029;font-size:14px;font-weight:600}
 .calendar-match-home{border-left-color:#198754}
 .calendar-match-away{border-left-color:#0d6efd}
+/* Keep each parent-card heading in the same colour as its side stripe. */
+.calendar-match:not(.calendar-match-home):not(.calendar-match-away) .eyebrow{color:#2f855a}
 .calendar-match-home .eyebrow{color:#198754}
 .calendar-match-away .eyebrow{color:#0d6efd}
+.calendar-training .eyebrow{color:#8960ad}
+.calendar-other .eyebrow{color:#d97706}
+.calendar-holiday .eyebrow{color:#d6a900}
+.calendar-cancelled .eyebrow{color:#777}
 .calendar-training{border-left-color:#8960ad}
 .calendar-other{border-left-color:#d97706}
 .calendar-holiday{border-left-color:#d6a900}
