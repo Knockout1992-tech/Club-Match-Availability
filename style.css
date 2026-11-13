@@ -321,3 +321,12 @@ footer {
 .success-modal-card h2{font-size:21px;margin-bottom:10px}
 .success-modal-card p{margin-bottom:18px}
 .success-modal-card button{margin:0;background:#000;color:#fff}
+
+
+/* Compact parent event cards; only differing age-group options are emphasised */
+.event-card.panel{padding:12px 14px;margin-bottom:10px;border-radius:11px}
+.event-card h2{font-size:19px;line-height:1.25;margin-bottom:5px}
+.event-card p{margin-bottom:4px}
+.event-card .event-groups{font-size:13px}
+.event-card .event-groups-different{display:inline-block;padding:2px 7px;border-radius:6px;background:#e5f3e9;color:#14532d;font-weight:800}
+@media(max-width:520px){.event-card.panel{padding:11px 12px;margin-bottom:9px}.event-card h2{font-size:18px}}
