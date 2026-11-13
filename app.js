@@ -1,6 +1,6 @@
 const BASE="https://muxxlewtqhpckhoqeinn.supabase.co/functions/v1/";
 const URLS={fixture:BASE+"get_fixture",submit:BASE+"submit_availability",home:BASE+"parent_home",manage:BASE+"manage_submission"};
-const params=new URLSearchParams(location.search);let fixtureToken=params.get("fixture"),groups=[],parentName="",parentPin="",activeFixture=null,mode="new",activeFixture=null,activeSubmission=null,parentFixtures=[],parentHomeCards=[],activeEventFilter="all";
+const params=new URLSearchParams(location.search);let fixtureToken=params.get("fixture"),groups=[],parentName="",parentPin="",mode="new",activeFixture=null,activeSubmission=null,parentFixtures=[],parentHomeCards=[],activeEventFilter="all";
 let lockHeartbeatTimer=null,activeLockToken=null,editLockLost=false;
 const el=id=>document.getElementById(id);
 const loading=el("loading"),home=el("parent-home"),events=el("events-section"),fixtureBox=el("fixture"),formBox=el("availability-form"),message=el("message"),childrenBox=el("children");
