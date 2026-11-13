@@ -270,7 +270,7 @@ footer {
 /* CENTRAL PARENT HOME */
 .event-card h2{margin-bottom:8px}.event-card p{margin-bottom:7px}.event-groups{color:#666;font-size:14px}
 .response-status{display:inline-block;padding:5px 10px;border-radius:20px;font-size:13px;font-weight:700}
-.status-done{background:#e5f3e9;color:#14532d}.status-pending{background:#fff3cd;color:#765600}
+.status-done{background:#fff1c2;color:#704f00}.status-pending{background:#fff3cd;color:#765600}
 .secondary-button{background:#e5e5e5;color:#111}input[readonly],select:disabled{background:#f1f1f1;color:#555}
 
 /* CURRENT SEASON CALENDAR */
