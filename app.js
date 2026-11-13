@@ -28,7 +28,7 @@ async function loadHome(name,pin=parentPin){
   parentFixtures=r.fixtures||[];
   window.parentCalendarEvents=r.calendar_events||[];
   if(fixtureToken&&activeFixture){
-   const existing=parentFixtures.find(f=>Number(f.id)===Number(activeFixture.id));
+   const existing=parentFixtures.find(f=>f.fixture_token===fixtureToken||Number(f.id)===Number(activeFixture.id));
    if(existing?.submission) await editResponse(existing,existing.submission);
    else newResponse(existing||activeFixture);
   }else renderEvents();
