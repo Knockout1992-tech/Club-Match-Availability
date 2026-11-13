@@ -170,5 +170,5 @@ document.addEventListener("visibilitychange",()=>{
  });
 });
 window.addEventListener("pagehide",()=>{if(activeLockToken&&activeSubmission?.edit_token){const token=activeLockToken;activeLockToken=null;stopLockHeartbeat();fetch(URLS.manage,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unlock",edit_token:activeSubmission.edit_token,lock_token:token}),keepalive:true}).catch(()=>{});}});
-async function start(){if(!fixtureToken){showHome();return;}try{const r=await post(URLS.fixture,{token:fixtureToken});groups=r.age_groups||[];activeFixture={...r.fixture,fixture_token:fixtureToken};hide();showFixture(r);formBox.hidden=true;home.hidden=false;el("lookup-parent-name").value=parentName;el("lookup-parent-pin").value="";}catch(e){showMessage(e.message||"Unable to load this fixture.",true);}}
+async function start(){if(!fixtureToken){showHome();return;}try{const r=await post(URLS.fixture,{token:fixtureToken});groups=r.age_groups||[];activeFixture={...r.fixture,fixture_token:fixtureToken,age_groups:groups};hide();showFixture(r);formBox.hidden=true;home.hidden=false;el("lookup-parent-name").value=parentName;el("lookup-parent-pin").value="";}catch(e){showMessage(e.message||"Unable to load this fixture.",true);}}
 start();
