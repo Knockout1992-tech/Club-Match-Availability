@@ -132,6 +132,7 @@ function startLockHeartbeat(){
 }
 async function editResponse(f,s){
  clearFormFeedback();
+ if(s.edit_locked){showMessage("This response is currently being edited by a parent. Please try again shortly.",true);return;}
  if(!s.edit_token){showMessage("Your private edit link needs refreshing. Please return to Parent Home and select your name again.",true);return;}
  const lockToken=makeLockToken();
  try{await post(URLS.manage,{action:"lock",edit_token:s.edit_token,lock_token:lockToken});}
