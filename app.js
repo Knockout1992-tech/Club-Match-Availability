@@ -119,16 +119,29 @@ async function editResponse(f,s){
  if(!s.edit_token){showMessage("Your private edit link needs refreshing. Please return to Parent Home and select your name again.",true);return;}
  const lockToken=makeLockToken();
  try{await post(URLS.manage,{action:"lock",edit_token:s.edit_token,lock_token:lockToken});}
- catch(e){showMessage(e.message||"This response is currently being edited elsewhere. Please try again shortly.",true);return;}
+ catch(e){
+  const message=e.message||"Unable to open this response.";
+  if(!/currently being edited/i.test(message)){
+   await loadHome(parentName);
+   showMessage("This response has changed since Parent Home was loaded. Your event list has been refreshed. Please check the response status and try again.",true);
+  }else showMessage(message,true);
+  return;
+ }
  activeLockToken=lockToken;activeSubmission=s;
  try{
   const latest=await post(URLS.manage,{action:"load",edit_token:s.edit_token});
   if(!latest.submission?.can_edit)throw Error("This fixture is no longer open for amendments.");
   activeSubmission={...s,match_availability:latest.submission.children||[]};
  }catch(e){await releaseParentLock();showMessage(e.message||"Unable to load the latest saved response.",true);return;}
+ const latestChildren=activeSubmission.match_availability||[];
+ if(!latestChildren.length){
+  await releaseParentLock();
+  await loadHome(parentName);
+  showMessage("This response no longer contains any child entries. Your event list has been refreshed; you can submit a new response if needed.",true);
+  return;
+ }
  editLockLost=false;mode="edit";activeFixture=f;groups=f.age_groups||[];
- hide();formBox.hidden=false;el("form-heading").textContent="Your response";el("form-intro").textContent="Update availability for "+f.opposition+". Child details cannot be changed here.";el("parent-name-group").hidden=true;el("parent-name").value=parentName;el("add-child").hidden=true;el("submit-button").disabled=false;el("submit-button").textContent="Save changes";childrenBox.innerHTML="";(s.match_availability||[]).forEach(addChild);
- if(!s.match_availability?.length){await releaseParentLock();showMessage("No child details were found for this response.",true);return;}
+ hide();formBox.hidden=false;el("form-heading").textContent="Your response";el("form-intro").textContent="Update availability for "+f.opposition+". Child details cannot be changed here.";el("parent-name-group").hidden=true;el("parent-name").value=parentName;el("add-child").hidden=true;el("submit-button").disabled=false;el("submit-button").textContent="Save changes";childrenBox.innerHTML="";latestChildren.forEach(addChild);
  startLockHeartbeat();
 }
 el("add-child").addEventListener("click",()=>addChild());
