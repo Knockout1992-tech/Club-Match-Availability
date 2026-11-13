@@ -280,3 +280,13 @@ footer {
 .calendar-other{border-left-color:#dd8b32}
 .calendar-holiday{border-left-color:#d6a928}
 .calendar-cancelled{border-left-color:#999;opacity:.78}
+
+
+/* Parent form feedback and calendar event colours */
+.form-feedback{padding:11px 13px;margin:10px 0 14px;border-radius:9px;background:#f8d7da;color:#842029;font-size:14px;font-weight:600}
+.calendar-match-home{border-left-color:#198754}
+.calendar-match-away{border-left-color:#0d6efd}
+.calendar-training{border-left-color:#8960ad}
+.calendar-other{border-left-color:#d97706}
+.calendar-holiday{border-left-color:#d6a900}
+.calendar-cancelled{border-left-color:#999;opacity:.78}
