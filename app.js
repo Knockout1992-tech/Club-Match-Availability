@@ -151,7 +151,15 @@ async function editResponse(f,s){
 el("add-child").addEventListener("click",()=>addChild());
 el("cancel-form").addEventListener("click",async()=>{await releaseParentLock();if(params.get("fixture"))location.href=location.pathname;else{mode="new";renderEvents();startHomeRefresh();}});
 el("submission-form").addEventListener("submit",async e=>{e.preventDefault();const cards=[...childrenBox.querySelectorAll(".child-card")];if(!cards.length){showFormFeedback("Please add at least one child.");return;}const list=cards.map(c=>({id:c.dataset.id?Number(c.dataset.id):undefined,child_name:c.querySelector(".child-name").value.trim(),age_group_id:Number(c.querySelector(".child-group").value),school_year:c.querySelector(".child-year").value.trim(),availability:c.querySelector(".child-availability").value}));if(list.some(c=>!c.child_name||!c.age_group_id||!c.school_year)){showFormFeedback("Please complete all the details for each child.");return;}const b=el("submit-button");b.disabled=true;b.textContent="Saving...";try{if(mode==="edit"){if(editLockLost||!activeLockToken)throw Error("Your editing session has expired. Cancel and reopen your response before saving.");await post(URLS.manage,{action:"update",edit_token:activeSubmission.edit_token,lock_token:activeLockToken,children:list.map(c=>({id:c.id,availability:c.availability}))});stopLockHeartbeat();activeLockToken=null;mode="new";await loadHome(parentName);}else{await post(URLS.submit,{fixture_token:fixtureToken,parent_name:parentName||el("parent-name").value.trim(),children:list.map(({id,...c})=>c)});if(params.get("fixture"))showMessage("Availability submitted. Thank you — your response has been recorded.");else await loadHome(parentName);}}catch(err){showFormFeedback(err.message||"Unable to save your response. Please try again.");b.disabled=false;b.textContent=mode==="edit"?"Save changes":"Submit availability";}});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&!events.hidden&&formBox.hidden&&mode!=="edit")loadHome(parentName,true);});
+document.addEventListener("visibilitychange",()=>{
+ if(document.visibilityState!=="visible")return;
+ if(mode==="edit"&&activeLockToken){
+  post(URLS.manage,{action:"heartbeat",edit_token:activeSubmission.edit_token,lock_token:activeLockToken}).catch(()=>{
+   stopLockHeartbeat();editLockLost=true;el("submit-button").disabled=true;
+   showFormFeedback("Your editing session has expired. Cancel and reopen your response before making changes.");
+  });
+ }else if(!events.hidden&&formBox.hidden)loadHome(parentName,true);
+});
 window.addEventListener("pagehide",()=>{if(activeLockToken&&activeSubmission?.edit_token){const token=activeLockToken;activeLockToken=null;stopLockHeartbeat();fetch(URLS.manage,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unlock",edit_token:activeSubmission.edit_token,lock_token:token}),keepalive:true}).catch(()=>{});}});
 async function start(){if(!fixtureToken){showHome();return;}try{const r=await post(URLS.fixture,{token:fixtureToken});groups=r.age_groups||[];hide();showFixture(r);mode="new";el("parent-name-group").hidden=false;el("parent-name").value="";el("add-child").hidden=false;childrenBox.innerHTML="";addChild();}catch(e){showMessage(e.message||"Unable to load this fixture.",true);}}
 start();
