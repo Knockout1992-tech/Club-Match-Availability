@@ -306,3 +306,17 @@ footer {
 .event-card h2{overflow-wrap:anywhere}
 .event-card button:not(.secondary-button){max-width:320px}
 @media(max-width:520px){.home-summary{gap:7px}.summary-item{padding:10px 5px}.summary-item strong{font-size:21px}.summary-item span{font-size:11px}.event-filter-bar .event-filter{font-size:13px;padding:9px 12px}.event-card button:not(.secondary-button){max-width:none}}
+
+
+/* Parent response form refinements */
+.child-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.child-card-heading h3{margin:0}
+.child-card .remove-child{width:auto;margin:0;padding:6px 10px;background:#f3e4e4;color:#842029;border:1px solid #e6caca;font-size:13px;border-radius:7px;flex:0 0 auto}
+.form-navigation{display:flex;justify-content:flex-end;margin-bottom:12px}
+.form-navigation button{width:auto;min-width:90px;margin:0;padding:9px 16px}
+#cancel-form{background:#e5e5e5;color:#111}
+.success-modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.success-modal-card{width:min(100%,380px);background:#fff;border-radius:14px;padding:24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.success-modal-card h2{font-size:21px;margin-bottom:10px}
+.success-modal-card p{margin-bottom:18px}
+.success-modal-card button{margin:0;background:#000;color:#fff}
