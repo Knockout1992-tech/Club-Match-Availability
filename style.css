@@ -330,3 +330,6 @@ footer {
 .event-card .event-groups{font-size:13px}
 .event-card .event-groups-different{display:inline-block;padding:2px 7px;border-radius:6px;background:#fff1c2;color:#704f00;font-weight:800}
 @media(max-width:520px){.event-card.panel{padding:11px 12px;margin-bottom:9px}.event-card h2{font-size:18px}}
+
+/* Small parent-site release number */
+.app-version{font-size:11px;color:#888;margin:4px 0 0;letter-spacing:.4px}
