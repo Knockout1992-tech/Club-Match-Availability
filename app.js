@@ -1,7 +1,7 @@
 const BASE="https://muxxlewtqhpckhoqeinn.supabase.co/functions/v1/";
 const URLS={fixture:BASE+"get_fixture",submit:BASE+"submit_availability",home:BASE+"parent_home",manage:BASE+"manage_submission"};
 const params=new URLSearchParams(location.search);let fixtureToken=params.get("fixture"),groups=[],parentName="",mode="new",activeFixture=null,activeSubmission=null,parentFixtures=[],parentHomeCards=[],activeEventFilter="all";
-let homeRefreshTimer=null,homeRefreshBusy=false,lockHeartbeatTimer=null,activeLockToken=null,editLockLost=false;
+let lockHeartbeatTimer=null,activeLockToken=null,editLockLost=false;
 const el=id=>document.getElementById(id);
 const loading=el("loading"),home=el("parent-home"),events=el("events-section"),fixtureBox=el("fixture"),formBox=el("availability-form"),message=el("message"),childrenBox=el("children");
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
@@ -12,33 +12,16 @@ function clearFormFeedback(){const box=el("form-feedback");box.textContent="";bo
 function showMessage(t,err=false){hide();message.hidden=false;message.textContent=t;message.className=err?"panel error-message":"panel";}
 async function post(url,data){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const j=await r.json();if(!r.ok||j.success===false)throw Error(j.error||"Unable to complete request.");return j;}
 function showHome(){hide();home.hidden=false;el("lookup-parent-name").value=parentName;}
-function stopHomeRefresh(){if(homeRefreshTimer){clearInterval(homeRefreshTimer);homeRefreshTimer=null;}}
-function startHomeRefresh(){
- stopHomeRefresh();
- homeRefreshTimer=setInterval(()=>{
-  if(document.visibilityState==="visible"&&!events.hidden&&formBox.hidden&&!homeRefreshBusy) loadHome(parentName,true);
- },60000);
-}
-async function loadHome(name,silent=false){
- if(homeRefreshBusy)return;
+async function loadHome(name){
  parentName=name.trim();
- if(!silent){stopHomeRefresh();hide();loading.hidden=false;}
- homeRefreshBusy=true;
+ hide();
+ loading.hidden=false;
  try{
-  const previous=parentFixtures||[];
-  const r=await post(URLS.home,{parent_name:parentName,refresh:silent});
-  parentFixtures=(r.fixtures||[]).map(f=>{
-   if(f.submission&&!f.submission.edit_token&&silent){
-    const prior=previous.find(x=>Number(x.id)===Number(f.id));
-    return {...f,submission:{...f.submission,edit_token:prior?.submission?.edit_token||null}};
-   }
-   return f;
-  });
+  const r=await post(URLS.home,{parent_name:parentName});
+  parentFixtures=r.fixtures||[];
   window.parentCalendarEvents=r.calendar_events||[];
   renderEvents();
-  startHomeRefresh();
- }catch(e){if(!silent)showMessage(e.message,true);else console.warn("Parent Home refresh failed:",e);}
- finally{homeRefreshBusy=false;}
+ }catch(e){showMessage(e.message,true);}
 }
 function renderEvents(){
 hide();events.hidden=false;
@@ -149,16 +132,14 @@ async function editResponse(f,s){
  startLockHeartbeat();
 }
 el("add-child").addEventListener("click",()=>addChild());
-el("cancel-form").addEventListener("click",async()=>{await releaseParentLock();if(params.get("fixture"))location.href=location.pathname;else{mode="new";renderEvents();startHomeRefresh();}});
+el("cancel-form").addEventListener("click",async()=>{await releaseParentLock();if(params.get("fixture"))location.href=location.pathname;else{mode="new";renderEvents();}});
 el("submission-form").addEventListener("submit",async e=>{e.preventDefault();const cards=[...childrenBox.querySelectorAll(".child-card")];if(!cards.length){showFormFeedback("Please add at least one child.");return;}const list=cards.map(c=>({id:c.dataset.id?Number(c.dataset.id):undefined,child_name:c.querySelector(".child-name").value.trim(),age_group_id:Number(c.querySelector(".child-group").value),school_year:c.querySelector(".child-year").value.trim(),availability:c.querySelector(".child-availability").value}));if(list.some(c=>!c.child_name||!c.age_group_id||!c.school_year)){showFormFeedback("Please complete all the details for each child.");return;}const b=el("submit-button");b.disabled=true;b.textContent="Saving...";try{if(mode==="edit"){if(editLockLost||!activeLockToken)throw Error("Your editing session has expired. Cancel and reopen your response before saving.");await post(URLS.manage,{action:"update",edit_token:activeSubmission.edit_token,lock_token:activeLockToken,children:list.map(c=>({id:c.id,availability:c.availability}))});stopLockHeartbeat();activeLockToken=null;mode="new";await loadHome(parentName);}else{await post(URLS.submit,{fixture_token:fixtureToken,parent_name:parentName||el("parent-name").value.trim(),children:list.map(({id,...c})=>c)});if(params.get("fixture"))showMessage("Availability submitted. Thank you — your response has been recorded.");else await loadHome(parentName);}}catch(err){showFormFeedback(err.message||"Unable to save your response. Please try again.");b.disabled=false;b.textContent=mode==="edit"?"Save changes":"Submit availability";}});
 document.addEventListener("visibilitychange",()=>{
- if(document.visibilityState!=="visible")return;
- if(mode==="edit"&&activeLockToken){
-  post(URLS.manage,{action:"heartbeat",edit_token:activeSubmission.edit_token,lock_token:activeLockToken}).catch(()=>{
-   stopLockHeartbeat();editLockLost=true;el("submit-button").disabled=true;
-   showFormFeedback("Your editing session has expired. Cancel and reopen your response before making changes.");
-  });
- }else if(!events.hidden&&formBox.hidden)loadHome(parentName,true);
+ if(document.visibilityState!=="visible"||mode!=="edit"||!activeLockToken)return;
+ post(URLS.manage,{action:"heartbeat",edit_token:activeSubmission.edit_token,lock_token:activeLockToken}).catch(()=>{
+  stopLockHeartbeat();editLockLost=true;el("submit-button").disabled=true;
+  showFormFeedback("Your editing session has expired. Cancel and reopen your response before making changes.");
+ });
 });
 window.addEventListener("pagehide",()=>{if(activeLockToken&&activeSubmission?.edit_token){const token=activeLockToken;activeLockToken=null;stopLockHeartbeat();fetch(URLS.manage,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unlock",edit_token:activeSubmission.edit_token,lock_token:token}),keepalive:true}).catch(()=>{});}});
 async function start(){if(!fixtureToken){showHome();return;}try{const r=await post(URLS.fixture,{token:fixtureToken});groups=r.age_groups||[];hide();showFixture(r);mode="new";el("parent-name-group").hidden=false;el("parent-name").value="";el("add-child").hidden=false;childrenBox.innerHTML="";addChild();}catch(e){showMessage(e.message||"Unable to load this fixture.",true);}}
