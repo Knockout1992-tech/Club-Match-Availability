@@ -1,0 +1,66 @@
+name: Update parent site version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Increment version and update cache references
+        env:
+          VERSION: 0.1.${{ github.run_number }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("index.html")
+          html = path.read_text(encoding="utf-8")
+          version = os.environ["VERSION"]
+
+          html, css_count = re.subn(
+              r'href="style\.css(?:\?v=[^"]*)?"',
+              f'href="style.css?v={version}"',
+              html,
+              count=1
+          )
+          html, js_count = re.subn(
+              r'src="app\.js(?:\?v=[^"]*)?"',
+              f'src="app.js?v={version}"',
+              html,
+              count=1
+          )
+          html, footer_count = re.subn(
+              r'(<p class="app-version">)v[^<]*(</p>)',
+              rf'\g<1>v{version}\g<2>',
+              html,
+              count=1
+          )
+
+          if css_count != 1 or js_count != 1 or footer_count != 1:
+              raise SystemExit(
+                  f"Expected one CSS, JS and footer version; found "
+                  f"CSS={css_count}, JS={js_count}, footer={footer_count}"
+              )
+
+          path.write_text(html, encoding="utf-8")
+          print(f"Updated parent site to v{version}")
+          PY
+
+      - name: Commit updated version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore: update parent site version to v0.1.${{ github.run_number }}"
+          git push
