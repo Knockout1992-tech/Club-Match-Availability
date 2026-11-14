@@ -430,3 +430,6 @@ footer {
 .family-panel{margin-top:0}
 .family-panel-heading h2{margin:.1rem 0 .5rem}
 @media(max-width:420px){.parent-account-actions{align-items:stretch}.parent-account-actions button{flex:1}}
+
+/* PRIVACY & DATA PROTECTION LINK */
+.footer-policy-link{margin:0 auto 14px}.footer-policy-link a{display:inline-block;color:#ddd;text-decoration:underline;text-underline-offset:3px;font-weight:700;font-size:13px;padding:8px 12px}
