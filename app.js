@@ -63,7 +63,7 @@ async function loadHome(name,pin=parentPin){
 function renderEvents(){
 hide();events.hidden=false;
 el("welcome-heading").textContent="Match availability";
-el("events-list").innerHTML="";
+const eventsList=el("events-list");if(!eventsList){showMessage("The parent calendar has not loaded correctly. Please refresh the page.",true);return;}eventsList.innerHTML="";
 el("events-empty").hidden=true;
 const calendar=window.parentCalendarEvents||[];
 const fixtureById=new Map((parentFixtures||[]).map(f=>[Number(f.id),f]));
@@ -115,7 +115,7 @@ parentHomeCards=cards;
 cards.forEach(card=>el("events-list").appendChild(card));
 const needed=cards.filter(c=>c.dataset.responseState==="needed").length;
 const responded=cards.filter(c=>c.dataset.responseState==="responded").length;
-el("home-summary").innerHTML='<div class="summary-item"><strong>'+cards.length+'</strong><span>Events</span></div><div class="summary-item"><strong>'+needed+'</strong><span>Need response</span></div><div class="summary-item"><strong>'+responded+'</strong><span>Responses recorded</span></div>';
+const summary=el("home-summary");if(!summary){showMessage("The parent calendar summary has not loaded correctly. Please refresh the page.",true);return;}summary.innerHTML='<div class="summary-item"><strong>'+cards.length+'</strong><span>Events</span></div><div class="summary-item"><strong>'+needed+'</strong><span>Need response</span></div><div class="summary-item"><strong>'+responded+'</strong><span>Responses recorded</span></div>';
 applyEventFilter();
 }
 const shareAccessToggle=el("share-access-toggle");
@@ -127,6 +127,7 @@ async function refreshFamilyPanel(){
  try{
   const r=await post(URLS.family,{action:"status",parent_name:parentName,parent_pin:parentPin});
   const members=el("family-members"),invites=el("family-invitations"),leave=el("family-leave-button"),invite=el("family-invite-button");
+  if(!members||!invites||!leave||!invite)return;
   if(!r.family){
    members.innerHTML='<p>No other parents are linked yet. Create an invitation to share your fixture list and responses.</p>';
    invites.innerHTML="";leave.hidden=true;invite.textContent="Invite someone";
@@ -142,7 +143,7 @@ el("family-invite-button")?.addEventListener("click",async()=>{
  const b=el("family-invite-button");b.disabled=true;b.textContent="Creating invitation…";
  try{
   const r=await post(URLS.family,{action:"create_invite",parent_name:parentName,parent_pin:parentPin});
-  const box=el("family-invite-result");box.hidden=false;box.innerHTML='<strong>Invitation ready</strong><p>Share this one-time link. It expires in 24 hours and can only be used once.</p><input id="family-invite-link" readonly value="'+esc(r.invite_url)+'"><button type="button" id="family-copy-invite">Copy invitation link</button>';
+  const box=el("family-invite-result");if(!box)throw Error("Share Access panel is unavailable. Please refresh the page.");box.hidden=false;box.innerHTML='<strong>Invitation ready</strong><p>Share this one-time link. It expires in 24 hours and can only be used once.</p><input id="family-invite-link" readonly value="'+esc(r.invite_url)+'"><button type="button" id="family-copy-invite">Copy invitation link</button>';
   el("family-copy-invite").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(r.invite_url);showFamilyFeedback("Invitation link copied. You can now share it by WhatsApp.");}catch(e){el("family-invite-link").select();showFamilyFeedback("Select and copy the invitation link above.");}});
   await refreshFamilyPanel();
  }catch(e){showFamilyFeedback(e.message||"Unable to create invitation.",true);}
