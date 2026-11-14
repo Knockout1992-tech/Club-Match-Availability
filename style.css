@@ -422,3 +422,11 @@ footer {
 .family-invite-result input{width:100%;margin:.4rem 0;padding:.7rem;border:1px solid var(--line,#d9e1dc);border-radius:8px}
 .family-small-button{font-size:.82rem;padding:.4rem .65rem}
 @media(max-width:520px){.family-member,.family-invitation{align-items:flex-start;flex-direction:column}}
+
+
+/* Share Access placement and compact account controls */
+.parent-account-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+.parent-account-actions button{width:auto;min-width:130px;margin:0;padding:10px 15px;font-size:14px}
+.family-panel{margin-top:0}
+.family-panel-heading h2{margin:.1rem 0 .5rem}
+@media(max-width:420px){.parent-account-actions{align-items:stretch}.parent-account-actions button{flex:1}}
