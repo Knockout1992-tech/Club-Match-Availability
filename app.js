@@ -118,6 +118,8 @@ const responded=cards.filter(c=>c.dataset.responseState==="responded").length;
 el("home-summary").innerHTML='<div class="summary-item"><strong>'+cards.length+'</strong><span>Events</span></div><div class="summary-item"><strong>'+needed+'</strong><span>Need response</span></div><div class="summary-item"><strong>'+responded+'</strong><span>Responses recorded</span></div>';
 applyEventFilter();
 }
+const shareAccessToggle=el("share-access-toggle");
+shareAccessToggle?.addEventListener("click",()=>{const panel=el("family-panel");const opening=panel.hidden;panel.hidden=!opening;shareAccessToggle.setAttribute("aria-expanded",String(opening));shareAccessToggle.querySelector("span").textContent=opening?"−":"＋";if(opening)panel.scrollIntoView({behavior:"smooth",block:"nearest"});});
 function showFamilyFeedback(text,error=false){const box=el("family-feedback");if(!box)return;box.textContent=text;box.hidden=false;box.classList.toggle("error-message",error);}
 function formatFamilyExpiry(value){return new Date(value).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}
 async function refreshFamilyPanel(){
@@ -127,11 +129,11 @@ async function refreshFamilyPanel(){
   const members=el("family-members"),invites=el("family-invitations"),leave=el("family-leave-button"),invite=el("family-invite-button");
   if(!r.family){
    members.innerHTML='<p>No other parents are linked yet. Create an invitation to share your fixture list and responses.</p>';
-   invites.innerHTML="";leave.hidden=true;invite.textContent="Invite a parent or carer";
+   invites.innerHTML="";leave.hidden=true;invite.textContent="Invite someone";
   }else{
    members.innerHTML=(r.members||[]).map(m=>'<div class="family-member"><div><span class="family-member-name">'+esc(m.parent_name)+'</span>'+(m.is_you?'<span class="family-member-you">(you)</span>':'')+'</div></div>').join("");
    invites.innerHTML=(r.invitations||[]).map(i=>'<div class="family-invitation"><span>Invitation awaiting acceptance · expires '+esc(formatFamilyExpiry(i.expires_at))+'</span><button type="button" class="secondary-button family-small-button" data-revoke-invite="'+Number(i.id)+'">Cancel invitation</button></div>').join("");
-   leave.hidden=(r.members||[]).length<2;invite.textContent="Invite another parent or carer";
+   leave.hidden=(r.members||[]).length<2;invite.textContent="Invite someone";
   }
   invites.querySelectorAll("[data-revoke-invite]").forEach(b=>b.addEventListener("click",async()=>{try{await post(URLS.family,{action:"revoke_invite",parent_name:parentName,parent_pin:parentPin,invitation_id:Number(b.dataset.revokeInvite)});await refreshFamilyPanel();showFamilyFeedback("Invitation cancelled.");}catch(e){showFamilyFeedback(e.message,true);}}));
  }catch(e){showFamilyFeedback(e.message||"Unable to load family sharing.",true);}
@@ -144,7 +146,7 @@ el("family-invite-button")?.addEventListener("click",async()=>{
   el("family-copy-invite").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(r.invite_url);showFamilyFeedback("Invitation link copied. You can now share it by WhatsApp.");}catch(e){el("family-invite-link").select();showFamilyFeedback("Select and copy the invitation link above.");}});
   await refreshFamilyPanel();
  }catch(e){showFamilyFeedback(e.message||"Unable to create invitation.",true);}
- finally{b.disabled=false;b.textContent="Invite another parent or carer";}
+ finally{b.disabled=false;b.textContent="Invite someone";}
 });
 el("family-leave-button")?.addEventListener("click",async()=>{
  if(!confirm("Leave family sharing? You will no longer see the other parent's shared responses."))return;
