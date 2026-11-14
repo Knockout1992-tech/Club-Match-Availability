@@ -39,11 +39,18 @@ async function loadHome(name,pin=parentPin){
   parentName=requestedName;
   parentPin=pin;
   if(familyInviteToken){
-   const accepted=await post(URLS.family,{action:"accept_invite",parent_name:parentName,parent_pin:parentPin,invite_token:familyInviteToken});
-   familyInviteToken=null;history.replaceState(null,"",location.pathname+(fixtureToken?"?fixture="+encodeURIComponent(fixtureToken):""));
-   if(accepted.accepted){
-    r=await post(URLS.home,{parent_name:parentName,parent_pin:parentPin});
-    showFamilyFeedback("Family sharing is now connected. You can both manage the same fixture responses.");
+   const inviteToken=familyInviteToken;
+   familyInviteToken=null;
+   history.replaceState(null,"",location.pathname+(fixtureToken?"?fixture="+encodeURIComponent(fixtureToken):""));
+   try{
+    const accepted=await post(URLS.family,{action:"accept_invite",parent_name:parentName,parent_pin:parentPin,invite_token:inviteToken});
+    if(accepted.accepted){
+     r=await post(URLS.home,{parent_name:parentName,parent_pin:parentPin});
+     showFamilyFeedback("Family sharing is now connected. You can both manage the same fixture responses.");
+    }
+   }catch(inviteError){
+    // Invitation links are single-use. If an old link is reopened, continue with normal sign-in.
+    console.info("Invitation link is no longer available; continuing to Parent Home.");
    }
   }
   await refreshFamilyPanel();
