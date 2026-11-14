@@ -35,13 +35,16 @@ async function loadHome(name,pin=parentPin){
  loading.hidden=false;
  el("login-feedback").hidden=true;
  try{
-  const r=await post(URLS.home,{parent_name:requestedName,parent_pin:pin});
+  let r=await post(URLS.home,{parent_name:requestedName,parent_pin:pin});
   parentName=requestedName;
   parentPin=pin;
   if(familyInviteToken){
    const accepted=await post(URLS.family,{action:"accept_invite",parent_name:parentName,parent_pin:parentPin,invite_token:familyInviteToken});
    familyInviteToken=null;history.replaceState(null,"",location.pathname+(fixtureToken?"?fixture="+encodeURIComponent(fixtureToken):""));
-   if(accepted.accepted)showFamilyFeedback("Family sharing is now connected. You can both manage the same fixture responses.");
+   if(accepted.accepted){
+    r=await post(URLS.home,{parent_name:parentName,parent_pin:parentPin});
+    showFamilyFeedback("Family sharing is now connected. You can both manage the same fixture responses.");
+   }
   }
   await refreshFamilyPanel();
   parentFixtures=r.fixtures||[];
