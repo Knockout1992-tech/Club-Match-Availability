@@ -88,14 +88,9 @@
 <section class="policy-card" id="retention">
 <h2>3. Data retention policy</h2>
 <p>The periods below are <strong>proposals for committee review</strong>, not statutory retention periods. Information should not be kept longer than necessary. A record may need to be retained or placed on hold where there is an active safeguarding, insurance, legal or incident-related reason.</p>
-<table class="policy-table"><thead><tr><th>Record type</th><th>Proposed retention</th></tr></thead><tbody>
-<tr><td>Attendance records</td><td>Current season plus two completed seasons.</td></tr>
-<tr><td>Match availability responses</td><td>12 months after the fixture date.</td></tr>
-<tr><td>Cancelled fixture responses</td><td>12 months after cancellation.</td></tr>
-<tr><td>Parent/family account links</td><td>While active; review and remove within 12 months after the account is no longer needed.</td></tr>
-<tr><td>Invitation tokens</td><td>Until accepted, revoked or expired; then remove promptly in line with technical capability.</td></tr>
-<tr><td>Security and access logs</td><td>12 months, subject to actual supplier log availability and configuration.</td></tr>
-<tr><td>Archived player records</td><td>Review after two completed seasons; anonymise or delete identifiable records when no longer required.</td></tr>
+<p id="retention-live-status" aria-live="polite">Loading the current retention settings…</p>
+<table class="policy-table"><thead><tr><th>Record type</th><th>Current configured retention</th></tr></thead><tbody id="retention-schedule">
+<tr><td colspan="2">Loading current settings…</td></tr>
 </tbody></table>
 <h3>Deletion and backups</h3>
 <p>Deletion should cover active records and any copies controlled by the club. Supplier backups may persist for a limited period under the supplier's backup cycle; the club must document the actual arrangements rather than promise immediate deletion from every backup. Records subject to a legitimate hold must be restricted and reviewed.</p>
@@ -139,5 +134,68 @@
 </section>
 </main>
 <footer class="policy-footer"><a href="../">Return to the Mini Section Parent Portal</a><p>Rushden &amp; Higham Rugby Union Football Club</p></footer>
+
+<script>
+(() => {
+  const endpoint = "https://muxxlewtqhpckhoqeinn.supabase.co/functions/v1/public_retention_policy";
+  const labels = {
+    attendance_individual: "Attendance records",
+    match_availability: "Match availability responses",
+    cancelled_fixture_responses: "Cancelled fixture responses",
+    parent_family_links: "Parent/family account links",
+    invitation_tokens: "Invitation tokens",
+    security_logs: "Security and access logs",
+    archived_players: "Archived player records"
+  };
+  function safe(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    })[c]);
+  }
+  function period(row) {
+    const n = Number(row.retention_value);
+    switch (row.policy_key) {
+      case "attendance_individual":
+        return "Current season plus " + n + " completed season" + (n === 1 ? "" : "s") + ". Individual attendance records older than this are deleted.";
+      case "match_availability":
+        return n + " month" + (n === 1 ? "" : "s") + " after the fixture date.";
+      case "cancelled_fixture_responses":
+        return n + " month" + (n === 1 ? "" : "s") + " after cancellation.";
+      case "parent_family_links":
+        return n + " month" + (n === 1 ? "" : "s") + " after the last meaningful parent account activity. Sign-in and failed PIN attempts do not reset this period.";
+      case "invitation_tokens":
+        return "Immediately after acceptance, revocation or expiry.";
+      case "security_logs":
+        return n + " month" + (n === 1 ? "" : "s") + " for club-controlled installation access-attempt logs.";
+      case "archived_players":
+        return n + " completed season" + (n === 1 ? "" : "s") + " after archiving; identifiable player details are then anonymised.";
+      default:
+        return safe(row.retention_value) + " " + safe(row.retention_unit) + ".";
+    }
+  }
+  async function load() {
+    const status = document.getElementById("retention-live-status");
+    const body = document.getElementById("retention-schedule");
+    try {
+      const response = await fetch(endpoint, { method: "GET", cache: "no-store" });
+      if (!response.ok) throw new Error("Schedule unavailable");
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.policies)) throw new Error("Invalid schedule");
+      const rows = data.policies
+        .filter(row => labels[row.policy_key])
+        .sort((a,b) => Object.keys(labels).indexOf(a.policy_key) - Object.keys(labels).indexOf(b.policy_key));
+      if (!rows.length) throw new Error("No retention settings returned");
+      body.innerHTML = rows.map(row => "<tr><td>" + safe(labels[row.policy_key]) + "</td><td>" + safe(period(row)) + "</td></tr>").join("");
+      const updated = data.updated_at ? new Date(data.updated_at).toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"}) : "not available";
+      status.textContent = "Live schedule · Settings version " + safe(data.version) + " · Last settings update: " + updated + ". This schedule is read directly from the club's System Admin retention settings.";
+    } catch (error) {
+      body.innerHTML = '<tr><td colspan="2">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
+      status.textContent = "Live retention schedule temporarily unavailable.";
+    }
+  }
+  load();
+})();
+</script>
+
 </body>
 </html>
