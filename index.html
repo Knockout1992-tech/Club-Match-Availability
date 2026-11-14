@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#123b2a"><title>Match Availability | Rushden & Higham RUFC</title><link rel="stylesheet" href="style.css?v=0.3.10"></head>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#123b2a"><title>Match Availability | Rushden & Higham RUFC</title><link rel="stylesheet" href="style.css?v=0.3.11"></head>
 <body><header class="site-header"><div class="header-inner"><img src="RHRFC.jpg" alt="Rushden & Higham RUFC crest" class="club-logo"><div class="header-copy"><div class="club-name">RUSHDEN & HIGHAM RUFC</div><div class="header-subtitle">MINI SECTION · PARENT PORTAL</div></div></div></header>
 <main class="container">
 <section id="loading" class="panel"><p>Loading...</p></section>
@@ -32,15 +32,7 @@
     </section>
   </div>
 </section>
-<section id="events-section" hidden><div class="panel parent-home-intro"><h2 id="welcome-heading">Your season calendar</h2><p>Upcoming fixtures and club events. Choose an event to submit or update your child’s availability.</p><button type="button" class="secondary-button" id="change-name">Logout</button></div><div id="home-summary" class="home-summary" aria-live="polite"></div><div class="event-filter-bar" id="event-filters" role="group" aria-label="Filter events"><button type="button" class="event-filter active" data-event-filter="all" aria-pressed="true">All events</button><button type="button" class="event-filter" data-event-filter="needed" aria-pressed="false">Needs response</button><button type="button" class="event-filter" data-event-filter="responded" aria-pressed="false">Responded</button></div><p id="event-count" class="event-count" aria-live="polite"></p><div id="events-list"></div><div id="events-empty" class="panel" hidden></div><section class="panel family-panel" id="family-panel" aria-labelledby="family-heading">
- <div class="family-panel-heading"><div><p class="eyebrow">SHARED ACCESS</p><h2 id="family-heading">Family &amp; Linked Parents</h2></div></div>
- <p>Link another parent or trusted carer so you can both see the same fixture list and manage the same availability responses. Each person keeps their own name and PIN.</p>
- <div id="family-members" class="family-members"><p>Loading linked parents…</p></div>
- <div id="family-invitations" class="family-invitations"></div>
- <div class="family-actions"><button type="button" id="family-invite-button">Invite a parent or carer</button><button type="button" class="secondary-button" id="family-leave-button" hidden>Leave family sharing</button></div>
- <p id="family-feedback" class="family-feedback" role="status" aria-live="polite" hidden></p>
- <div id="family-invite-result" class="family-invite-result" hidden></div>
-</section></section>
+<section id="events-section" hidden><div class="panel parent-home-intro"><h2 id="welcome-heading">Your season calendar</h2><p>Upcoming fixtures and club events. Choose an event to submit or update your child’s availability.</p><div class="parent-account-actions"><button type="button" class="secondary-button" id="share-access-toggle" aria-expanded="false" aria-controls="family-panel">Share Access <span aria-hidden="true">＋</span></button><button type="button" class="secondary-button" id="change-name">Logout</button></div></div></section>
 <section id="fixture" class="panel" hidden><p class="eyebrow">UPCOMING FIXTURE</p><h1 id="opposition"></h1><div id="fixture-details"></div></section>
 <section id="availability-form" class="panel" hidden><div class="form-navigation"><button type="button" class="secondary-button" id="home-button">Home</button></div><h2 id="form-heading">Player availability</h2><p id="form-intro">Please tell us whether your child or children can attend.</p><p id="form-feedback" class="form-feedback" role="alert" aria-live="polite" hidden></p><form id="submission-form"><div class="form-group" id="parent-name-group"><label for="parent-name">Parent / Guardian name</label><input type="text" id="parent-name" required maxlength="100"></div><div id="children"></div><button type="button" id="add-child">+ Add another child</button><button type="submit" id="submit-button">Submit availability</button><button type="button" class="secondary-button" id="cancel-form">Back</button></form></section>
 <section id="message" class="panel" hidden></section></main><div id="success-modal" class="success-modal" role="dialog" aria-modal="true" aria-labelledby="success-modal-title" hidden><div class="success-modal-card"><h2 id="success-modal-title">Saved successfully</h2><p id="success-message-text">Your response has been saved.</p><button type="button" id="success-ok">OK</button></div></div><footer class="site-footer">
@@ -48,5 +40,5 @@
 <a class="sponsor-logo-link" href="https://dcvengineeringltd.co.uk/" target="_blank" rel="noopener noreferrer" aria-label="Visit DCV Engineering Plant Hire website"><span class="dcv-wordmark"><strong>DCV</strong><span><b>ENGINEERING</b><small>PLANT HIRE</small></span></span></a>
 <div class="sponsor-logo-static" aria-label="Element Building Services"><span class="element-wordmark"><strong>ELEMENT</strong><small>BUILDING SERVICES</small></span></div>
 </div></div>
-  <div class="footer-club">Rushden &amp; Higham Rugby Union Football Club <span class="app-version">v0.3.10</span></div>
-</footer><script type="module" src="app.js?v=0.3.10"></script></body></html>
+  <div class="footer-club">Rushden &amp; Higham Rugby Union Football Club <span class="app-version">v0.3.11</span></div>
+</footer><script type="module" src="app.js?v=0.3.11"></script></body></html>
