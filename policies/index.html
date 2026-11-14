@@ -68,7 +68,7 @@
 <p>This policy applies to coaches, senior administrators and anyone given access to the protected areas of Club Check-In.</p>
 <ul>
 <li>Access is personal and must only be used by the person it was issued to.</li>
-<li>Coach access must be limited to the age groups the coach is authorised to manage.</li>
+<li>The club intends coaches to access player information only for the age groups they are authorised to manage. The current shared Coach PIN does not technically enforce individual coach permissions or restrict player and attendance records by age group. This access-control gap must be resolved and tested before the club relies on the restriction.</li>
 <li>Senior/admin access is restricted to people specifically authorised by the club.</li>
 <li>PINs, passwords, invitation links and other access credentials must not be shared or reused by another person.</li>
 <li>Information must only be viewed or used for a legitimate club purpose.</li>
@@ -169,7 +169,7 @@
     const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value||"";};
     set("policy-draft-notice",c.draft_notice);
     const draft=document.getElementById("policy-draft-notice");
-    if(draft){draft.innerHTML="<strong>"+safe(c.approval_status||"Club privacy notice")+"</strong><br>"+safe(c.draft_notice||"");}
+    if(draft){draft.innerHTML="<strong>Working draft</strong><br>"+safe(c.draft_notice||"");}
     const metadata=document.getElementById("policy-metadata");
     if(metadata){metadata.innerHTML=[
       ["Document owner",c.document_owner],["Approval status",c.approval_status],
@@ -180,7 +180,12 @@
     set("policy-incident-contact",c.incident_contact_instruction);
     const access=document.getElementById("policy-access-roles");
     if(access && Array.isArray(c.access_roles)){
-      access.innerHTML=c.access_roles.map(r=>"<li><strong>"+safe(r.role)+":</strong> "+safe(r.description)+"</li>").join("");
+      access.innerHTML=c.access_roles.map(r=>{
+        const description = r.role === "Coaches"
+          ? "Can see the names of all age groups. The current shared Coach PIN does not identify individual coaches or enforce age-group-specific access to player and attendance records. A holder of the Coach PIN may therefore be able to access player records across all age groups. Individual coach accounts and server-side age-group permissions are required before access can be described as restricted."
+          : r.description;
+        return "<li><strong>"+safe(r.role)+":</strong> "+safe(description)+"</li>";
+      }).join("");
     }
     set("policy-privacy-contact",c.privacy_contact);
     const owner=document.getElementById("policy-document-owner");
@@ -215,7 +220,7 @@
       body.innerHTML = '<tr><td colspan="3">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
       status.textContent = "";
       const unavailable = "The club's current privacy information is temporarily unavailable. Please try again shortly or contact the club.";
-      const ids = ["policy-draft-notice","policy-controller-description","policy-rights-contact","policy-incident-contact","policy-privacy-contact","policy-review-frequency","policy-next-review"];
+      const ids = ["policy-draft-notice","policy-controller-description","policy-rights-contact","policy-incident-contact","policy-privacy-contact"];
       ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=unavailable; });
       const access=document.getElementById("policy-access-roles");
       if(access) access.innerHTML="<li>Club access information is temporarily unavailable.</li>";
