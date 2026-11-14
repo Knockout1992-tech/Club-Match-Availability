@@ -122,13 +122,7 @@
 </section>
 <section class="policy-card" id="review">
 <h2>6. Review, approval and contact</h2>
-<ul>
-<li><strong>Document owner:</strong> RHRFC committee – proposed.</li>
-<li><strong>Data Protection Lead:</strong> To be appointed.</li>
-<li><strong>Approval status:</strong> Draft – not yet approved by the club committee.</li>
-<li><strong>Review frequency:</strong> At least annually and whenever a significant new feature, supplier or use of personal information is introduced.</li>
-<li><strong>Next review:</strong> To be set following committee approval.</li>
-</ul>
+<ul id="policy-metadata"></ul>
 <p>Before formal approval, the club should complete a documented legitimate interests assessment, confirm its controller details and contact route, approve retention periods, verify supplier arrangements and complete a DPIA screening exercise to decide whether a full Data Protection Impact Assessment is required.</p>
 <p id="policy-review-frequency"></p><p id="policy-next-review"></p><p id="policy-privacy-contact">Loading current club contact wording…</p>
 </section>
@@ -177,7 +171,12 @@
     const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value||"";};
     set("policy-draft-notice",c.draft_notice);
     const draft=document.getElementById("policy-draft-notice");
-    if(draft){draft.innerHTML="<strong>"+safe(c.approval_status||"Club privacy notice")+"</strong><br>"+safe(c.draft_notice||"");}
+    if(draft){draft.innerHTML="<strong>"+safe(c.approval_status||"Club privacy notice")+"</strong><br>"+safe(c.draft_notice||"")+"<br><strong>Document owner:</strong> "+safe(c.document_owner||"");}
+    const metadata=document.getElementById("policy-metadata");
+    if(metadata){metadata.innerHTML=[
+      ["Document owner",c.document_owner],["Approval status",c.approval_status],
+      ["Review frequency",c.review_frequency],["Next review",c.next_review]
+    ].map(([label,value])=>"<li><strong>"+safe(label)+":</strong> "+safe(value||"")+"</li>").join("");}
     set("policy-controller-description",c.controller_description);
     set("policy-rights-contact",c.rights_contact_instruction);
     set("policy-incident-contact",c.incident_contact_instruction);
