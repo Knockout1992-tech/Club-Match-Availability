@@ -206,7 +206,14 @@
       status.textContent = "";
     } catch (error) {
       body.innerHTML = '<tr><td colspan="2">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
-      status.textContent = "Live retention schedule temporarily unavailable.";
+      status.textContent = "";
+      const unavailable = "The club's current privacy information is temporarily unavailable. Please try again shortly or contact the club.";
+      const ids = ["policy-draft-notice","policy-controller-description","policy-rights-contact","policy-incident-contact","policy-privacy-contact","policy-review-frequency","policy-next-review"];
+      ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=unavailable; });
+      const access=document.getElementById("policy-access-roles");
+      if(access) access.innerHTML="<li>Club access information is temporarily unavailable.</li>";
+      const responsibilities=document.querySelector("#responsibilities table tbody");
+      if(responsibilities) responsibilities.innerHTML="<tr><td colspan='2'>Club responsibilities are temporarily unavailable.</td></tr>";
     }
   }
   load();
