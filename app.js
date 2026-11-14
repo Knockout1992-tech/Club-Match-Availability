@@ -136,6 +136,7 @@ async function refreshFamilyPanel(){
    invites.innerHTML=(r.invitations||[]).map(i=>'<div class="family-invitation"><span>Invitation awaiting acceptance · expires '+esc(formatFamilyExpiry(i.expires_at))+'</span><button type="button" class="secondary-button family-small-button" data-revoke-invite="'+Number(i.id)+'">Cancel invitation</button></div>').join("");
    leave.hidden=(r.members||[]).length<2;invite.textContent="Invite someone";
   }
+  const feedback=el("family-feedback");if(feedback?.classList.contains("error-message")){feedback.textContent="";feedback.hidden=true;feedback.classList.remove("error-message");}
   invites.querySelectorAll("[data-revoke-invite]").forEach(b=>b.addEventListener("click",async()=>{try{await post(URLS.family,{action:"revoke_invite",parent_name:parentName,parent_pin:parentPin,invitation_id:Number(b.dataset.revokeInvite)});await refreshFamilyPanel();showFamilyFeedback("Invitation cancelled.");}catch(e){showFamilyFeedback(e.message,true);}}));
  }catch(e){showFamilyFeedback(e.message||"Unable to load family sharing.",true);}
 }
