@@ -349,3 +349,38 @@ footer {
 .new-members-prompt p{margin:0;color:#666;font-size:14px}
 .new-members-link{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:42px;padding:10px 16px;border-radius:9px;background:#000;color:#fff;text-decoration:none;font-weight:700;font-size:14px}
 @media(max-width:420px){.new-members-prompt{align-items:stretch;flex-direction:column}.new-members-link{width:100%}}
+
+
+/* MINI SECTION LANDING PAGE */
+.landing-page{max-width:850px;margin:0 auto;padding:16px 15px 24px}
+.landing-hero{position:relative;overflow:hidden;background:#111;color:#fff;border-radius:18px;padding:30px 26px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.landing-hero:after{content:"";position:absolute;width:190px;height:190px;border:1px solid rgba(255,255,255,.15);border-radius:50%;right:-55px;top:-70px;box-shadow:0 0 0 22px rgba(255,255,255,.035),0 0 0 46px rgba(255,255,255,.025)}
+.landing-kicker,.footer-kicker{font-size:11px;letter-spacing:1.8px;font-weight:800;color:#bbb;margin:0 0 15px}
+.landing-hero h1{font-size:clamp(34px,7vw,49px);line-height:1.02;letter-spacing:-1.4px;margin:0 0 14px;max-width:550px}
+.landing-hero h1 span{color:#cfcfcf}
+.landing-intro{font-size:16px;color:#e1e1e1;max-width:470px;margin:0}
+.landing-rule{height:3px;width:48px;background:#fff;margin:22px 0 12px}
+.landing-note{font-size:13px;color:#bbb;margin:0;letter-spacing:.2px}
+.landing-options{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.landing-card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:20px;box-shadow:0 2px 9px rgba(0,0,0,.045);display:flex;flex-direction:column}
+.landing-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.landing-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#111;color:#fff;font-size:21px;font-weight:700}
+.landing-card .eyebrow{margin:0;font-size:10px;letter-spacing:1px}
+.landing-card h2{font-size:23px;margin:0 0 7px}
+.landing-card>p:not(.eyebrow){font-size:14px;color:#666;margin:0 0 15px}
+.landing-card .form-group{margin-bottom:12px}
+.landing-card label{font-size:13px}
+.landing-card input{padding:12px;border-radius:9px}
+.landing-card button,.landing-card .new-members-link{width:100%;min-height:48px;margin-top:3px;display:flex;align-items:center;justify-content:center;gap:8px;background:#111;color:#fff;text-decoration:none;border-radius:9px;font-weight:700;padding:12px 16px}
+.landing-card .new-members-link{margin-top:auto}
+.new-rugby-card{background:#f0f0f0;border-color:#e2e2e2}
+.new-rugby-card .landing-icon{background:#fff;color:#111;border:1px solid #ddd}
+.new-rugby-footnote{font-size:12px;color:#666;margin-top:14px}
+.site-footer{background:#111;color:#fff;text-align:center;margin-top:8px;padding:27px 18px 18px}
+.sponsor-thanks{max-width:600px;margin:0 auto 20px}
+.sponsor-thanks .footer-kicker{margin-bottom:6px}
+.sponsor-thanks h2{font-size:19px;margin:0 0 7px}
+.sponsor-thanks>p:last-child{font-size:13px;color:#bbb;margin:0}
+.footer-club{border-top:1px solid #333;padding-top:14px;color:#aaa;font-size:12px}
+.site-footer .app-version{color:#777}
+@media(max-width:620px){.landing-options{grid-template-columns:1fr}.landing-hero{padding:25px 21px}.landing-card{padding:18px}.landing-card .new-members-link{margin-top:6px}}
