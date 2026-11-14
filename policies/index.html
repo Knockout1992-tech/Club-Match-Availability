@@ -32,13 +32,13 @@
 <header class="site-header"><div class="header-inner"><img src="../RHRFC.jpg" alt="Rushden &amp; Higham RUFC crest" class="club-logo"><div class="header-copy"><div class="club-name">RUSHDEN &amp; HIGHAM RUFC</div><div class="header-subtitle">CLUB CHECK-IN · PRIVACY &amp; DATA PROTECTION</div></div></div></header>
 <main class="policy-wrap">
 <section class="policy-hero"><p class="eyebrow">CLUB INFORMATION</p><h1>Privacy &amp; Data Protection</h1><p>How we use and protect information in Club Check-In and the Mini Section Parent Portal.</p></section>
-<div class="draft-notice"><strong>DRAFT – SUBJECT TO CLUB APPROVAL</strong><br>This is the club's working draft. The club committee must confirm the responsible Data Protection Lead, lawful basis, retention periods and supplier arrangements before this document is treated as formally approved. Last prepared: 14 November 2026.</div>
+<div class="draft-notice" id="policy-draft-notice"><strong>Working draft</strong><br>Loading current club wording…</div>
 <nav class="policy-nav" aria-label="Policy sections">
 <a href="#privacy">Privacy notice</a><a href="#acceptable-use">Acceptable use</a><a href="#retention">Retention</a><a href="#responsibilities">Responsibilities</a><a href="#suppliers">Suppliers</a><a href="#review">Review &amp; contact</a>
 </nav>
 <section class="policy-card" id="privacy">
 <h2>1. Privacy notice</h2>
-<p><strong>Who is responsible?</strong> The proposed data controller is Rushden &amp; Higham Rugby Union Football Club (RHRFC), acting through its club committee. This designation and the club's legal identity must be confirmed by the committee.</p>
+<p id="policy-controller-description">Loading current club wording…</p>
 <p><strong>Why we use information.</strong> We use the Club Check-In app and Parent Portal to organise Mini Section activities, record attendance, plan fixtures, collect availability responses, manage parent/carer access and maintain the security of the service.</p>
 <h3>Information we may hold</h3>
 <ul>
@@ -64,7 +64,7 @@
 <h3>How long information is kept</h3>
 <p>The proposed retention periods are set out in the Retention Policy below. These periods remain provisional until approved by the club after checking applicable RFU, safeguarding, insurance and legal requirements.</p>
 <h3>Your rights</h3>
-<p>Parents/carers and, where appropriate, players can ask the club to explain what information it holds, request a copy, correct inaccurate information, or raise a concern about how information is used. Some rights depend on the circumstances and applicable law. Requests should be directed to the club through its usual official contact route and marked for the Data Protection Lead.</p>
+<p>Parents/carers and, where appropriate, players can ask the club to explain what information it holds, request a copy, correct inaccurate information, or raise a concern about how information is used. Some rights depend on the circumstances and applicable law. <span id="policy-rights-contact">Loading current club contact wording…</span></p>
 <p>You can also raise a concern with the Information Commissioner's Office (ICO): <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener noreferrer">ico.org.uk/make-a-complaint</a>.</p>
 </section>
 <section class="policy-card" id="acceptable-use">
@@ -79,7 +79,7 @@
 <li>Player or parent information must not be copied, downloaded, photographed, screenshotted or circulated unless there is a genuine need and the club has authorised it.</li>
 <li>Personal copies of registers or availability lists must not be retained indefinitely or stored in unsecured locations.</li>
 <li>Information must not be used for personal purposes, marketing or unrelated contact.</li>
-<li>Suspected loss, misuse, unauthorised access or accidental disclosure must be reported promptly to the club's designated contact.</li>
+<li><span id="policy-incident-contact">Loading current club contact wording…</span></li>
 <li>Access must be reviewed and removed when a person leaves their coaching or administrative role or no longer needs access.</li>
 <li>The club may review access and system activity for security, audit and investigation purposes.</li>
 </ul>
@@ -101,12 +101,12 @@
 <table class="policy-table"><tbody>
 <tr><th>Role</th><th>Responsibility</th></tr>
 <tr><td>Club committee</td><td>Accountable for the club's decisions about why and how personal information is used; approve policies, risk decisions and resources.</td></tr>
-<tr><td>Data Protection Lead</td><td><strong>To be appointed.</strong> Coordinate privacy requests, policy reviews, retention checks, supplier reviews and breach escalation.</td></tr>
+
 <tr><td>System administrator</td><td>Maintain the application, configure authorised access, apply security updates and support technical investigations.</td></tr>
 <tr><td>Coaches</td><td>Use only the information needed for their authorised teams and follow the acceptable use rules.</td></tr>
 <tr><td>Senior administrators</td><td>Manage player and user records only within their authorised club responsibilities.</td></tr>
 </tbody></table>
-<p>The technical administrator is not automatically the person accountable for the club's data protection decisions. The committee should appoint a named lead and publish an appropriate club contact route.</p>
+
 <h3>Data incidents</h3>
 <p>Any suspected personal data breach must be reported to the club promptly. The club should record what happened, what information and people were affected, what action was taken and whether notification to the ICO or affected individuals is required. Where notification to the ICO is required, the legal time limit is generally 72 hours from awareness of the breach.</p>
 </section>
@@ -130,7 +130,7 @@
 <li><strong>Next review:</strong> To be set following committee approval.</li>
 </ul>
 <p>Before formal approval, the club should complete a documented legitimate interests assessment, confirm its controller details and contact route, approve retention periods, verify supplier arrangements and complete a DPIA screening exercise to decide whether a full Data Protection Impact Assessment is required.</p>
-<p>For questions or requests, contact the club through its usual official contact channel and ask for the Data Protection Lead. The named contact will be added here once appointed.</p>
+<p id="policy-review-frequency"></p><p id="policy-next-review"></p><p id="policy-privacy-contact">Loading current club contact wording…</p>
 </section>
 </main>
 <footer class="policy-footer"><a href="../">Return to the Mini Section Parent Portal</a><p>Rushden &amp; Higham Rugby Union Football Club</p></footer>
@@ -173,6 +173,24 @@
         return safe(row.retention_value) + " " + safe(row.retention_unit) + ".";
     }
   }
+  function renderEditablePolicy(c) {
+    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value||"";};
+    set("policy-draft-notice",c.draft_notice);
+    const draft=document.getElementById("policy-draft-notice");
+    if(draft){draft.innerHTML="<strong>"+safe(c.approval_status||"Club privacy notice")+"</strong><br>"+safe(c.draft_notice||"");}
+    set("policy-controller-description",c.controller_description);
+    set("policy-rights-contact",c.rights_contact_instruction);
+    set("policy-incident-contact",c.incident_contact_instruction);
+    set("policy-privacy-contact",c.privacy_contact);
+    set("policy-review-frequency","Review frequency: "+(c.review_frequency||"As required by the club."));
+    set("policy-next-review","Next review: "+(c.next_review||"To be confirmed by the club."));
+    const owner=document.getElementById("policy-document-owner");
+    if(owner)owner.textContent=c.document_owner||"";
+    const table=document.querySelector("#responsibilities table tbody");
+    if(table && Array.isArray(c.roles)){
+      table.innerHTML=c.roles.map(r=>"<tr><td>"+safe(r.role)+"</td><td>"+safe(r.responsibility)+"</td></tr>").join("");
+    }
+  }
   async function load() {
     const status = document.getElementById("retention-live-status");
     const body = document.getElementById("retention-schedule");
@@ -186,8 +204,8 @@
         .sort((a,b) => Object.keys(labels).indexOf(a.policy_key) - Object.keys(labels).indexOf(b.policy_key));
       if (!rows.length) throw new Error("No retention settings returned");
       body.innerHTML = rows.map(row => "<tr><td>" + safe(labels[row.policy_key]) + "</td><td>" + safe(period(row)) + "</td></tr>").join("");
-      const updated = data.updated_at ? new Date(data.updated_at).toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"}) : "not available";
-      status.textContent = "Live schedule · Settings version " + safe(data.version) + " · Last settings update: " + updated + ". This schedule is read directly from the club's System Admin retention settings.";
+      renderEditablePolicy(data.policy_content||{});
+      status.textContent = "";
     } catch (error) {
       body.innerHTML = '<tr><td colspan="2">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
       status.textContent = "Live retention schedule temporarily unavailable.";
