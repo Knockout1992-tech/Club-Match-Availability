@@ -85,7 +85,7 @@ calendar.forEach(e=>{
  (e.event_type==="holiday"?"":'<p class="event-groups">Age groups: '+esc(age||"—")+'</p>')+
  (e.notes?'<p>'+esc(e.notes)+'</p>':'')+
  (e.event_type==="holiday"?"":(e.event_type==="cancelled"?'<p class="response-status status-pending">Cancelled</p>':
-  (canRespond?'<p><span class="response-status '+(f.submission?"status-done":"status-pending")+'">'+(f.submission?"Availability submitted":"Awaiting response")+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
+  (canRespond?'<p><span class="response-status '+availabilitySummary(f.submission).className+'">'+esc(availabilitySummary(f.submission).label)+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
   '<p class="event-groups">'+(e.availability_enabled?"Availability link not yet available":"No availability requested")+'</p>')));
  if(canRespond)card.querySelector("button").addEventListener("click",()=>f.submission?editResponse(f,f.submission):newResponse(f));
  cards.push(card);
@@ -95,7 +95,7 @@ calendar.forEach(e=>{
  const ag=(f.age_groups||[]).map(g=>g.display_name||g.age_group).join(", ");
  card.innerHTML='<p class="eyebrow">'+(f.fixture_type==="home"?"Home fixture":"Away fixture")+'</p><h2>'+esc(f.opposition)+'</h2><p><strong>'+date(f.fixture_date)+'</strong></p>'+
  (f.kick_off_time?'<p>Kick-off: '+esc(f.kick_off_time.slice(0,5))+'</p>':"")+(f.venue?'<p>Venue: '+esc(f.venue)+'</p><p><a class="maps-link" href="'+esc(mapsUrl(f.venue))+'" target="_blank" rel="noopener">Open in Google Maps</a></p>':"")+
- '<p class="event-groups">Age groups: '+esc(ag||"—")+'</p><p><span class="response-status '+(sub?"status-done":"status-pending")+'">'+(sub?"Response recorded":"Awaiting your response")+'</span></p><button type="button">'+(sub?"View / update response":"Submit availability")+'</button>';
+ '<p class="event-groups">Age groups: '+esc(ag||"—")+'</p><p><span class="response-status '+availabilitySummary(sub).className+'">'+esc(availabilitySummary(sub).label)+'</span></p><button type="button">'+(sub?"View / update response":"Submit availability")+'</button>';
  card.querySelector("button").addEventListener("click",()=>sub?editResponse(f,sub):newResponse(f));cards.push(card);
 });
 const optionGroups=new Map();
