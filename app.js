@@ -1,7 +1,7 @@
 const BASE="https://muxxlewtqhpckhoqeinn.supabase.co/functions/v1/";
-const URLS={fixture:BASE+"get_fixture",submit:BASE+"submit_availability",home:BASE+"parent_home",manage:BASE+"manage_submission"};
+const URLS={fixture:BASE+"get_fixture",submit:BASE+"submit_availability",home:BASE+"parent_home",manage:BASE+"manage_submission",family:BASE+"manage_parent_family"};
 const params=new URLSearchParams(location.search);let fixtureToken=params.get("fixture"),groups=[],parentName="",parentPin="",mode="new",activeFixture=null,activeSubmission=null,parentFixtures=[],parentHomeCards=[],activeEventFilter="all";
-let lockHeartbeatTimer=null,activeLockToken=null,editLockLost=false;
+let lockHeartbeatTimer=null,activeLockToken=null,editLockLost=false,familyInviteToken=params.get("family_invite");
 const el=id=>document.getElementById(id);
 const loading=el("loading"),home=el("parent-home"),events=el("events-section"),fixtureBox=el("fixture"),formBox=el("availability-form"),message=el("message"),childrenBox=el("children"),successModal=el("success-modal");
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
@@ -38,6 +38,12 @@ async function loadHome(name,pin=parentPin){
   const r=await post(URLS.home,{parent_name:requestedName,parent_pin:pin});
   parentName=requestedName;
   parentPin=pin;
+  if(familyInviteToken){
+   const accepted=await post(URLS.family,{action:"accept_invite",parent_name:parentName,parent_pin:parentPin,invite_token:familyInviteToken});
+   familyInviteToken=null;history.replaceState(null,"",location.pathname+(fixtureToken?"?fixture="+encodeURIComponent(fixtureToken):""));
+   if(accepted.accepted)showFamilyFeedback("Family sharing is now connected. You can both manage the same fixture responses.");
+  }
+  await refreshFamilyPanel();
   parentFixtures=r.fixtures||[];
   window.parentCalendarEvents=r.calendar_events||[];
   if(fixtureToken&&activeFixture){
@@ -109,6 +115,39 @@ const responded=cards.filter(c=>c.dataset.responseState==="responded").length;
 el("home-summary").innerHTML='<div class="summary-item"><strong>'+cards.length+'</strong><span>Events</span></div><div class="summary-item"><strong>'+needed+'</strong><span>Need response</span></div><div class="summary-item"><strong>'+responded+'</strong><span>Responses recorded</span></div>';
 applyEventFilter();
 }
+function showFamilyFeedback(text,error=false){const box=el("family-feedback");if(!box)return;box.textContent=text;box.hidden=false;box.classList.toggle("error-message",error);}
+function formatFamilyExpiry(value){return new Date(value).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}
+async function refreshFamilyPanel(){
+ const panel=el("family-panel");if(!panel||!parentName||!parentPin)return;
+ try{
+  const r=await post(URLS.family,{action:"status",parent_name:parentName,parent_pin:parentPin});
+  const members=el("family-members"),invites=el("family-invitations"),leave=el("family-leave-button"),invite=el("family-invite-button");
+  if(!r.family){
+   members.innerHTML='<p>No other parents are linked yet. Create an invitation to share your fixture list and responses.</p>';
+   invites.innerHTML="";leave.hidden=true;invite.textContent="Invite a parent or carer";
+  }else{
+   members.innerHTML=(r.members||[]).map(m=>'<div class="family-member"><div><span class="family-member-name">'+esc(m.parent_name)+'</span>'+(m.is_you?'<span class="family-member-you">(you)</span>':'')+'</div></div>').join("");
+   invites.innerHTML=(r.invitations||[]).map(i=>'<div class="family-invitation"><span>Invitation awaiting acceptance · expires '+esc(formatFamilyExpiry(i.expires_at))+'</span><button type="button" class="secondary-button family-small-button" data-revoke-invite="'+Number(i.id)+'">Cancel invitation</button></div>').join("");
+   leave.hidden=(r.members||[]).length<2;invite.textContent="Invite another parent or carer";
+  }
+  invites.querySelectorAll("[data-revoke-invite]").forEach(b=>b.addEventListener("click",async()=>{try{await post(URLS.family,{action:"revoke_invite",parent_name:parentName,parent_pin:parentPin,invitation_id:Number(b.dataset.revokeInvite)});await refreshFamilyPanel();showFamilyFeedback("Invitation cancelled.");}catch(e){showFamilyFeedback(e.message,true);}}));
+ }catch(e){showFamilyFeedback(e.message||"Unable to load family sharing.",true);}
+}
+el("family-invite-button")?.addEventListener("click",async()=>{
+ const b=el("family-invite-button");b.disabled=true;b.textContent="Creating invitation…";
+ try{
+  const r=await post(URLS.family,{action:"create_invite",parent_name:parentName,parent_pin:parentPin});
+  const box=el("family-invite-result");box.hidden=false;box.innerHTML='<strong>Invitation ready</strong><p>Share this one-time link. It expires in 24 hours and can only be used once.</p><input id="family-invite-link" readonly value="'+esc(r.invite_url)+'"><button type="button" id="family-copy-invite">Copy invitation link</button>';
+  el("family-copy-invite").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(r.invite_url);showFamilyFeedback("Invitation link copied. You can now share it by WhatsApp.");}catch(e){el("family-invite-link").select();showFamilyFeedback("Select and copy the invitation link above.");}});
+  await refreshFamilyPanel();
+ }catch(e){showFamilyFeedback(e.message||"Unable to create invitation.",true);}
+ finally{b.disabled=false;b.textContent="Invite another parent or carer";}
+});
+el("family-leave-button")?.addEventListener("click",async()=>{
+ if(!confirm("Leave family sharing? You will no longer see the other parent's shared responses."))return;
+ try{await post(URLS.family,{action:"unlink",parent_name:parentName,parent_pin:parentPin});el("family-invite-result").hidden=true;await refreshFamilyPanel();showFamilyFeedback("You have left family sharing.");}
+ catch(e){showFamilyFeedback(e.message||"Unable to leave family sharing.",true);}
+});
 function applyEventFilter(){
  let shown=0;
  parentHomeCards.forEach(card=>{const visible=activeEventFilter==="all"||(activeEventFilter==="needed"&&card.dataset.responseState==="needed")||(activeEventFilter==="responded"&&card.dataset.responseState==="responded");card.hidden=!visible;if(visible)shown++;});
