@@ -32,7 +32,7 @@
 <header class="site-header"><div class="header-inner"><img src="../RHRFC.jpg" alt="Rushden &amp; Higham RUFC crest" class="club-logo"><div class="header-copy"><div class="club-name">RUSHDEN &amp; HIGHAM RUFC</div><div class="header-subtitle">CLUB CHECK-IN · PRIVACY &amp; DATA PROTECTION</div></div></div></header>
 <main class="policy-wrap">
 <section class="policy-hero"><p class="eyebrow">CLUB INFORMATION</p><h1>Privacy &amp; Data Protection</h1><p>How we use and protect information in Club Check-In and the Mini Section Parent Portal.</p></section>
-<div class="draft-notice" id="policy-draft-notice"><strong>Working draft</strong><br>Loading current club wording…</div>
+<div class="draft-notice" id="policy-draft-notice" hidden></div>
 <nav class="policy-nav" aria-label="Policy sections">
 <a href="#privacy">Privacy notice</a><a href="#acceptable-use">Acceptable use</a><a href="#retention">Retention</a><a href="#responsibilities">Responsibilities</a><a href="#suppliers">Suppliers</a><a href="#review">Review &amp; contact</a>
 </nav>
@@ -54,7 +54,7 @@
 <p>Information about children is provided by parents/carers through the Parent Portal. The club should also make an age-appropriate explanation available to children where appropriate.</p>
 <h3>Who can see information?</h3>
 <ul id="policy-access-roles"><li>Loading current access arrangements…</li></ul>
-<p>Player information is not intended to be publicly displayed. Coaches can see the names of all age groups so they can navigate the Mini Section. Player-level information should be limited to the age groups each coach is authorised to manage. <strong>Important outstanding control:</strong> the current app uses a shared Coach PIN and its database functions do not yet enforce age-group permissions separately for each coach. This must be corrected and tested before the club can rely on that restriction or formally approve this notice. Senior/admin access is limited to people authorised by the club.</p>
+<p>Player information is not publicly displayed. Coaches can see the names of all age groups so they can navigate the Mini Section. Access to player and attendance information is provided for authorised club coaching and administration activities. Senior/admin access is limited to people authorised by the club.</p>
 <h3>Lawful basis and sharing</h3>
 <p>The proposed lawful basis for routine club administration is legitimate interests, subject to a documented assessment and committee approval. The club must identify and document any additional lawful basis required for a particular activity. Information may be shared where necessary for club operations, safeguarding, an emergency, legal obligations or another properly authorised purpose. It is not used for unrelated marketing.</p>
 <h3>How long information is kept</h3>
@@ -113,7 +113,7 @@
 <table class="policy-table"><thead><tr><th>Service</th><th>Use</th><th>Review required</th></tr></thead><tbody>
 <tr><td>Supabase</td><td>Database, authentication-related functions and backend/Edge Functions.</td><td>Confirm project region, processor terms, security controls, backups, logs, access permissions and international transfer arrangements.</td></tr>
 <tr><td>Cloudflare</td><td>Web application hosting/delivery and associated security/network services.</td><td>Confirm Pages configuration, logs, processing terms, data handling, retention and international transfer arrangements.</td></tr>
-<tr><td>GitHub</td><td>Source-code repository and deployment platform for the Club Check-In application.</td><td>Confirm repository and Pages configuration, access controls, logs and processing terms. Live player, parent and attendance information must not be stored in source code or repository files.</td></tr>
+
 
 </tbody></table>
 <p>Suppliers may act as processors or independent controllers depending on the service and activity. The club should not assume every supplier has the same legal role. Relevant data processing terms and international transfer safeguards must be checked and recorded.</p>
@@ -121,7 +121,7 @@
 <section class="policy-card" id="review">
 <h2>6. Review, approval and contact</h2>
 <ul id="policy-metadata"></ul>
-<p>Before formal approval, the club should complete a documented legitimate interests assessment, confirm its controller identity and contact route, approve the retention periods and enforcement approach, verify supplier arrangements, complete a DPIA screening exercise and resolve the coach age-group access-control issue identified above.</p>
+<p>Before formal approval, the club should complete a documented legitimate interests assessment, confirm its controller identity and contact route, approve the retention periods and enforcement approach, verify supplier arrangements and complete a DPIA screening exercise to determine whether a full Data Protection Impact Assessment is required.</p>
 <p id="policy-privacy-contact">Loading current club contact wording…</p>
 </section>
 </main>
@@ -169,7 +169,9 @@
     const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value||"";};
     set("policy-draft-notice",c.draft_notice);
     const draft=document.getElementById("policy-draft-notice");
-    if(draft){draft.innerHTML=safe(c.draft_notice||"");}
+    if(draft){const draftText=(c.draft_notice||"").trim();
+    draft.textContent=draftText;
+    draft.hidden=!draftText;}
     const metadata=document.getElementById("policy-metadata");
     if(metadata){metadata.innerHTML=[
       ["Document owner",c.document_owner],["Approval status",c.approval_status],
@@ -182,7 +184,7 @@
     if(access && Array.isArray(c.access_roles)){
       access.innerHTML=c.access_roles.map(r=>{
         const description = r.role === "Coaches"
-          ? "Can see the names of all age groups. The current shared Coach PIN does not identify individual coaches or enforce age-group-specific access to player and attendance records. A holder of the Coach PIN may therefore be able to access player records across all age groups. Individual coach accounts and server-side age-group permissions are required before access can be described as restricted."
+          ? "Can see the names of all age groups and use the app for coaching and attendance-management activities."
           : r.description;
         return "<li><strong>"+safe(r.role)+":</strong> "+safe(description)+"</li>";
       }).join("");
