@@ -41,7 +41,7 @@ async function loadHome(name,pin=parentPin){
 }
 function renderEvents(){
 hide();events.hidden=false;
-el("welcome-heading").textContent="Welcome, "+parentName;
+el("welcome-heading").textContent="Match availability";
 el("events-list").innerHTML="";
 el("events-empty").hidden=true;
 const calendar=window.parentCalendarEvents||[];
