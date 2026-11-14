@@ -52,12 +52,7 @@
 </ul>
 <p>The system is not intended to collect parent contact details, children's medical information or other sensitive information for routine attendance and availability. If a new feature requires this information, the club should review the purpose, lawful basis, safeguards and privacy notice before collecting it.</p>
 <h3>Who can see information?</h3>
-<ul>
-<li>Coaches can access information needed for the age groups they are authorised to manage.</li>
-<li>Designated senior administrators can access wider club information and manage user access.</li>
-<li>Parents/carers can view and manage the relevant family responses available to their account, including where family sharing has been linked.</li>
-<li>Technical service providers may process limited information to host, deliver, secure or support the service.</li>
-</ul>
+<ul id="policy-access-roles"><li>Loading current access arrangements…</li></ul>
 <p>Player information is not intended to be publicly displayed. Access should be restricted to authorised people with a genuine club-related need.</p>
 <h3>Lawful basis and sharing</h3>
 <p>The proposed lawful basis for routine club administration is legitimate interests, subject to a documented assessment and committee approval. The club must identify and document any additional lawful basis required for a particular activity. Information may be shared where necessary for club operations, safeguarding, an emergency, legal obligations or another properly authorised purpose. It is not used for unrelated marketing.</p>
@@ -180,6 +175,10 @@
     set("policy-controller-description",c.controller_description);
     set("policy-rights-contact",c.rights_contact_instruction);
     set("policy-incident-contact",c.incident_contact_instruction);
+    const access=document.getElementById("policy-access-roles");
+    if(access && Array.isArray(c.access_roles)){
+      access.innerHTML=c.access_roles.map(r=>"<li><strong>"+safe(r.role)+":</strong> "+safe(r.description)+"</li>").join("");
+    }
     set("policy-privacy-contact",c.privacy_contact);
     set("policy-review-frequency","Review frequency: "+(c.review_frequency||"As required by the club."));
     set("policy-next-review","Next review: "+(c.next_review||"To be confirmed by the club."));
