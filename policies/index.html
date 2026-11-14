@@ -58,7 +58,7 @@
 <h3>Lawful basis and sharing</h3>
 <p>The proposed lawful basis for routine club administration is legitimate interests, subject to a documented assessment and committee approval. The club must identify and document any additional lawful basis required for a particular activity. Information may be shared where necessary for club operations, safeguarding, an emergency, legal obligations or another properly authorised purpose. It is not used for unrelated marketing.</p>
 <h3>How long information is kept</h3>
-<p>The proposed retention periods are set out in the Retention Policy below. These periods remain provisional until approved by the club after checking applicable RFU, safeguarding, insurance and legal requirements.</p>
+<p>The club's retention arrangements are set out in the Data Retention Policy below.</p>
 <h3>Your rights</h3>
 <p>Parents/carers and, where appropriate, players may ask for access to their personal information, correction of inaccurate information, erasure or restriction where the legal conditions are met, and may object to processing based on legitimate interests. The right to data portability applies only in specified circumstances. The club will respond within the applicable legal time limits and explain where a request cannot be met in full. <span id="policy-rights-contact">Loading current club contact wording…</span></p>
 <p>You can also raise a concern with the Information Commissioner's Office (ICO): <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener noreferrer">ico.org.uk/make-a-complaint</a>.</p>
@@ -83,12 +83,11 @@
 </section>
 <section class="policy-card" id="retention">
 <h2>3. Data retention policy</h2>
-<p>The periods below are <strong>proposals for committee review</strong>, not statutory retention periods. Information should not be kept longer than necessary. A record may need to be retained or placed on hold where there is an active safeguarding, insurance, legal or incident-related reason.</p>
+<p>The club retains personal information only for as long as necessary for the purposes for which it was collected, taking account of legal, safeguarding, insurance and regulatory requirements. The retention periods below describe the club's intended retention arrangements. A record may need to be retained or placed on hold where there is an active safeguarding, insurance, legal or incident-related reason.</p>
 <p id="retention-live-status" aria-live="polite">Loading the current retention settings…</p>
-<table class="policy-table"><thead><tr><th>Record type</th><th>Configured retention</th><th>Automatic enforcement</th></tr></thead><tbody id="retention-schedule">
-<tr><td colspan="3">Loading current settings…</td></tr>
+<table class="policy-table"><thead><tr><th>Record type</th><th>Retention period</th></tr></thead><tbody id="retention-schedule">
+<tr><td colspan="2">Loading current settings…</td></tr>
 </tbody></table>
-<p>The retention job runs daily. A configured period is not the same as an active deletion rule: the status column shows whether automatic processing is currently enabled for each category. Until enforcement is enabled, the configured period is a policy setting and records are not automatically removed under that rule.</p>
 <h3>Deletion and backups</h3>
 <p>Deletion should cover active records and any copies controlled by the club. Supplier backups may persist for a limited period under the supplier's backup cycle; the club must document the actual arrangements rather than promise immediate deletion from every backup. Records subject to a legitimate hold must be restricted and reviewed. The current retention configuration keeps aggregate attendance history/register totals when individual attendance records are removed, and keeps player identifiers where needed to preserve historical attendance relationships after anonymisation.</p>
 </section>
@@ -209,17 +208,13 @@
         .filter(row => labels[row.policy_key])
         .sort((a,b) => Object.keys(labels).indexOf(a.policy_key) - Object.keys(labels).indexOf(b.policy_key));
       if (!rows.length) throw new Error("No retention settings returned");
-      body.innerHTML = rows.map(row => {
-        const enabled = row.enforcement_enabled === true;
-        const statusText = enabled
-          ? (row.policy_key === "invitation_tokens" ? "Enabled — processed by the next daily run" : "Enabled — automatic processing active")
-          : "OFF — configured period only; no automatic removal";
-        return "<tr><td>" + safe(labels[row.policy_key]) + "</td><td>" + safe(period(row)) + "</td><td>" + safe(statusText) + "</td></tr>";
-      }).join("");
+      body.innerHTML = rows.map(row =>
+        "<tr><td>" + safe(labels[row.policy_key]) + "</td><td>" + safe(period(row)) + "</td></tr>"
+      ).join("");
       renderEditablePolicy(data.policy_content||{});
       status.textContent = "";
     } catch (error) {
-      body.innerHTML = '<tr><td colspan="3">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
+      body.innerHTML = '<tr><td colspan="2">The live retention settings could not be loaded. Please try again later or contact the club.</td></tr>';
       status.textContent = "";
       const unavailable = "The club's current privacy information is temporarily unavailable. Please try again shortly or contact the club.";
       const ids = ["policy-draft-notice","policy-controller-description","policy-rights-contact","policy-incident-contact","policy-privacy-contact"];
