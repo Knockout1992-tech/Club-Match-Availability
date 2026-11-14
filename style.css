@@ -406,3 +406,19 @@ footer {
 .element-wordmark{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#111;line-height:1.05}
 .element-wordmark strong{font-size:25px;font-weight:900;letter-spacing:2px}
 .element-wordmark small{font-size:10px;font-weight:800;letter-spacing:2.2px;margin-top:6px}
+
+/* Family sharing */
+.family-panel{margin-top:1.25rem;border:1px solid var(--line,#e3e8e5)}
+.family-panel>p{color:var(--muted,#65736b);line-height:1.55}
+.family-panel-heading h2{margin:.1rem 0 .5rem}
+.family-members{display:grid;gap:.55rem;margin:1rem 0}
+.family-member{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem .9rem;background:var(--surface-soft,#f5f7f5);border-radius:12px}
+.family-member-name{font-weight:650}
+.family-member-you{font-size:.82rem;color:var(--muted,#65736b);margin-left:.4rem}
+.family-invitation{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.7rem 0;border-top:1px solid var(--line,#e3e8e5);font-size:.9rem}
+.family-actions{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.9rem}
+.family-feedback{margin:.75rem 0;padding:.7rem .85rem;border-radius:10px;background:var(--surface-soft,#f5f7f5)}
+.family-invite-result{margin-top:.8rem;padding:.8rem;border:1px solid var(--line,#e3e8e5);border-radius:12px;overflow-wrap:anywhere}
+.family-invite-result input{width:100%;margin:.4rem 0;padding:.7rem;border:1px solid var(--line,#d9e1dc);border-radius:8px}
+.family-small-button{font-size:.82rem;padding:.4rem .65rem}
+@media(max-width:520px){.family-member,.family-invitation{align-items:flex-start;flex-direction:column}}
