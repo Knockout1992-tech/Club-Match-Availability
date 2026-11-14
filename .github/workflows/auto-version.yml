@@ -1,0 +1,44 @@
+name: Automatic app version
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  bump-version:
+    if: ${{ !contains(github.event.head_commit.message, '[version-managed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Increment semantic version
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const current = fs.readFileSync('VERSION', 'utf8').trim();
+          const match = current.match(/^(\\d+)\\.(\\d+)\\.(\\d+)$/);
+          if (!match) throw new Error('VERSION must be major.minor.patch.');
+          let major = Number(match[1]), minor = Number(match[2]), patch = Number(match[3]);
+          if (patch < 9) patch++;
+          else if (minor < 9) { patch = 0; minor++; }
+          else { patch = 0; minor = 0; major++; }
+          const next = `${major}.${minor}.${patch}`;
+          fs.writeFileSync('VERSION', next + '\\n');
+          let html = fs.readFileSync('index.html', 'utf8');
+          html = html.replace(/(style\\.css\\?v=)\\d+\\.\\d+\\.\\d+/g, `$1${next}`);
+          html = html.replace(/(app\\.js\\?v=)\\d+\\.\\d+\\.\\d+/g, `$1${next}`);
+          html = html.replace(/(<span class="app-version">v)\\d+\\.\\d+\\.\\d+(<\\/span>)/, `$1${next}$2`);
+          fs.writeFileSync('index.html', html);
+          console.log(`Version bumped: ${current} -> ${next}`);
+          NODE
+      - name: Commit updated version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: bump app version [version-managed]"
+          git push
