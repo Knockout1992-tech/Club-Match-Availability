@@ -6,6 +6,18 @@ const el=id=>document.getElementById(id);
 const loading=el("loading"),home=el("parent-home"),events=el("events-section"),fixtureBox=el("fixture"),formBox=el("availability-form"),message=el("message"),childrenBox=el("children"),successModal=el("success-modal");
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
 function date(v){return new Date(String(v).slice(0,10)+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
+function availabilitySummary(sub){
+ const children=Array.isArray(sub?.match_availability)?sub.match_availability:[];
+ if(!children.length)return {label:"Awaiting response",className:"status-pending"};
+ const counts={available:0,unavailable:0,unsure:0};
+ children.forEach(child=>{if(Object.prototype.hasOwnProperty.call(counts,child.availability))counts[child.availability]++;});
+ const parts=[];
+ for(const [key,label] of [["available","Available"],["unavailable","Unavailable"],["unsure","Unsure"]]){
+  const n=counts[key];if(n)parts.push((children.length>1?n+" ":"")+label);
+ }
+ const state=counts.available&&counts.unavailable?"status-mixed":counts.available?"status-available":counts.unavailable?"status-unavailable":"status-unsure";
+ return {label:parts.join(" · "),className:state};
+}
 function mapsUrl(address){
  const value=String(address||"").trim();
  return value?"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(value):"";
@@ -73,7 +85,7 @@ calendar.forEach(e=>{
  (e.event_type==="holiday"?"":'<p class="event-groups">Age groups: '+esc(age||"—")+'</p>')+
  (e.notes?'<p>'+esc(e.notes)+'</p>':'')+
  (e.event_type==="holiday"?"":(e.event_type==="cancelled"?'<p class="response-status status-pending">Cancelled</p>':
-  (canRespond?'<p><span class="response-status '+(f.submission?"status-done":"status-pending")+'">'+(f.submission?"Response recorded":"Availability requested")+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
+  (canRespond?'<p><span class="response-status '+(f.submission?"status-done":"status-pending")+'">'+(f.submission?"Availability submitted":"Awaiting response")+'</span></p><button type="button">'+(f.submission?"View / update availability":"Submit availability")+'</button>':
   '<p class="event-groups">'+(e.availability_enabled?"Availability link not yet available":"No availability requested")+'</p>')));
  if(canRespond)card.querySelector("button").addEventListener("click",()=>f.submission?editResponse(f,f.submission):newResponse(f));
  cards.push(card);
