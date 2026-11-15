@@ -53,14 +53,14 @@ async function loadHome(name,pin=parentPin){
     console.info("Invitation link is no longer available; continuing to Parent Home.");
    }
   }
-  await refreshFamilyPanel();
-  parentFixtures=r.fixtures||[];
-  window.parentCalendarEvents=r.calendar_events||[];
+  parentFixtures=Array.isArray(r.fixtures)?r.fixtures:[];
+  window.parentCalendarEvents=Array.isArray(r.calendar_events)?r.calendar_events:[];
   if(fixtureToken&&activeFixture){
    const existing=parentFixtures.find(f=>f.fixture_token===fixtureToken||Number(f.id)===Number(activeFixture.id));
    if(existing?.submission) await editResponse(existing,existing.submission);
    else newResponse(existing||activeFixture);
   }else renderEvents();
+  await refreshFamilyPanel();
  }catch(e){
   hide();home.hidden=false;if(fixtureToken)fixtureBox.hidden=false;
   el("login-feedback").textContent=e.message||"Unable to sign in. Please try again.";
@@ -69,7 +69,7 @@ async function loadHome(name,pin=parentPin){
 }
 function renderEvents(){
 hide();events.hidden=false;
-el("welcome-heading").textContent="Match availability";
+el("welcome-heading").textContent="Upcoming fixtures & events";
 const eventsList=el("events-list");if(!eventsList){showMessage("The parent calendar has not loaded correctly. Please refresh the page.",true);return;}eventsList.innerHTML="";
 el("events-empty").hidden=true;
 const calendar=window.parentCalendarEvents||[];
@@ -167,7 +167,7 @@ function applyEventFilter(){
  parentHomeCards.forEach(card=>{const visible=activeEventFilter==="all"||(activeEventFilter==="needed"&&card.dataset.responseState==="needed")||(activeEventFilter==="responded"&&card.dataset.responseState==="responded");card.hidden=!visible;if(visible)shown++;});
  document.querySelectorAll("[data-event-filter]").forEach(button=>{const active=button.dataset.eventFilter===activeEventFilter;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active));});
  el("event-count").textContent=shown+" event"+(shown===1?"":"s")+" shown";
- const empty=el("events-empty");empty.hidden=shown!==0;empty.textContent=parentHomeCards.length?"There are no events in this filter.":"There are no upcoming events scheduled for the current season.";
+ const empty=el("events-empty");empty.hidden=shown!==0;empty.textContent=parentHomeCards.length?"There are no events in this filter.":"No upcoming fixtures or events are currently available. If you expected to see some, please contact your age-group coach.";
 }
 document.querySelectorAll("[data-event-filter]").forEach(button=>button.addEventListener("click",()=>{activeEventFilter=button.dataset.eventFilter;applyEventFilter();}));
 el("parent-lookup-form").addEventListener("submit",async e=>{e.preventDefault();const b=el("lookup-button");b.disabled=true;b.textContent="Checking...";await loadHome(el("lookup-parent-name").value,el("lookup-parent-pin").value);b.disabled=false;b.textContent="Continue";});

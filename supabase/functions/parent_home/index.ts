@@ -32,6 +32,31 @@ function constantTimeEqual(a: string, b: string): boolean {
   return difference === 0;
 }
 
+
+async function writeSecurityAudit(
+  db: any,
+  eventType: string,
+  outcome: string,
+  severity: string,
+  actorReference: number | null,
+  details: Record<string, unknown> = {},
+) {
+  try {
+    const { error } = await db.from("system_admin_audit_log").insert({
+      source_system: "match_availability_parent_portal",
+      severity,
+      event_type: eventType,
+      outcome,
+      actor_type: "parent",
+      actor_reference: actorReference === null ? null : String(actorReference),
+      details,
+    });
+    if (error) console.error("Security audit write failed:", error.message);
+  } catch (error) {
+    console.error("Security audit write failed:", error);
+  }
+}
+
 async function authenticateParent(supabase: any, parentName: string, pin: string, allowCreate: boolean) {
   const normalisedName = normalise(parentName);
   let { data: account, error } = await supabase.from("match_parent_access")
@@ -46,7 +71,11 @@ async function authenticateParent(supabase: any, parentName: string, pin: string
     const { data: created, error: createError } = await supabase.from("match_parent_access")
       .insert({ parent_name: parentName.trim(), normalised_name: normalisedName, pin_salt: salt, pin_hash: hash })
       .select("id,parent_name,pin_salt,pin_hash,failed_attempts,locked_until").single();
-    if (!createError && created) return { ok: true, created: true };
+    if (!createError && created) {
+      await writeSecurityAudit(supabase, "parent_account_registered", "success", "info", Number(created.id));
+      await writeSecurityAudit(supabase, "parent_pin_verification", "success", "info", Number(created.id), { registration: true });
+      return { ok: true, created: true, account: created };
+    }
     const retry = await supabase.from("match_parent_access")
       .select("id,parent_name,pin_salt,pin_hash,failed_attempts,locked_until")
       .eq("normalised_name", normalisedName).maybeSingle();
@@ -54,29 +83,46 @@ async function authenticateParent(supabase: any, parentName: string, pin: string
     account = retry.data;
   }
 
-  if (!account) return { ok: false, status: 401, error: "Parent account not found. Please return to Parent Home and register first." };
+  if (!account) {
+    await writeSecurityAudit(supabase, "parent_pin_verification", "failed", "warning", null, { reason: "account_not_found" });
+    return { ok: false, status: 401, error: "Parent account not found. Please return to Parent Home and register first." };
+  }
   if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
+    await writeSecurityAudit(supabase, "parent_pin_verification", "blocked", "warning", Number(account.id), { reason: "account_locked" });
     return { ok: false, status: 429, error: "Too many incorrect PIN attempts. Please try again in 10 minutes." };
   }
 
-  const suppliedHash = await derivePinHash(pin, account.pin_salt);
-  if (!constantTimeEqual(suppliedHash, account.pin_hash)) {
-    const attempts = Number(account.failed_attempts || 0) + 1;
-    const lockedUntil = attempts >= 5 ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
-    await supabase.from("match_parent_access").update({
-      failed_attempts: attempts >= 5 ? 0 : attempts,
-      locked_until: lockedUntil,
-      updated_at: new Date().toISOString(),
-    }).eq("id", account.id);
-    return lockedUntil
-      ? { ok: false, status: 429, error: "Too many incorrect PIN attempts. Please try again in 10 minutes." }
-      : { ok: false, status: 401, error: "That PIN is incorrect. Please try again." };
-  }
+  return { ...(await verifyParentPinAtomically(supabase, account, pin)), created: false };
+}
 
-  await supabase.from("match_parent_access").update({
-    failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString(),
-  }).eq("id", account.id);
-  return { ok: true, created: false };
+async function verifyParentPinAtomically(supabase: any, account: any, pin: string) {
+  const suppliedHash = await derivePinHash(pin, account.pin_salt);
+  const { data: result, error } = await supabase.rpc("verify_parent_pin_attempt", {
+    p_parent_access_id: Number(account.id),
+    p_supplied_hash: suppliedHash,
+  });
+  if (error || !result || typeof result.reason === "undefined" && result.ok !== true) {
+    console.error("Parent PIN verification failed:", error?.message);
+    throw new Error("Unable to verify parent access");
+  }
+  if (result.ok === true) {
+    return { ok: true, account };
+  }
+  const reason = result.reason;
+  const locked = reason === "five_failed_attempts";
+  const blocked = reason === "account_locked";
+  const outcome = locked ? "locked_out" : blocked ? "blocked" : "failed";
+  const severity = locked ? "critical" : "warning";
+  await writeSecurityAudit(supabase, "parent_pin_verification", outcome, severity, Number(account.id), {
+    reason: locked ? "five_failed_attempts" : blocked ? "account_locked" : "incorrect_pin",
+  });
+  return {
+    ok: false,
+    status: locked || blocked ? 429 : 401,
+    error: locked || blocked
+      ? "Too many incorrect PIN attempts. Please try again in 10 minutes."
+      : "That PIN is incorrect. Please try again.",
+  };
 }
 
 async function hashToken(token: string): Promise<string> {
@@ -122,7 +168,7 @@ function eventToken(): string {
     .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function syncCurrentSeasonEvents(supabase: any, today: string) {
+async function syncCurrentSeasonEvents(supabase: any, today: string, selectedAgeGroupIds: number[] | null = null) {
   const { data: events, error } = await supabase
     .from("season_planner_events")
     .select("id,season_id,age_group_id,event_date,event_type,title,start_time,end_time,venue,match_location,opposition,notes,availability_enabled,seasons!inner(is_current)")
@@ -134,7 +180,7 @@ async function syncCurrentSeasonEvents(supabase: any, today: string) {
   const grouped = new Map<string, any[]>();
   for (const event of events ?? []) {
     const key = [
-      event.event_date, event.title, event.event_type, event.match_location ?? "",
+      event.event_date, event.title, event.event_type, event.event_type === "match" ? (event.match_location || "home") : (event.match_location ?? ""),
       String(event.start_time ?? "").slice(0, 5), String(event.end_time ?? "").slice(0, 5),
       event.venue ?? "", event.notes ?? "", event.availability_enabled === true ? "on" : "off",
     ].join("|");
@@ -144,6 +190,9 @@ async function syncCurrentSeasonEvents(supabase: any, today: string) {
 
   const syncedFixtureLinks: { fixture_id: number; event_ids: number[] }[] = [];
   for (const items of grouped.values()) {
+    // Coaches synchronise only event groups containing one of their selected age groups.
+    // Keep the full matching group together so shared fixtures retain every age-group link.
+    if (selectedAgeGroupIds && !items.some((event) => selectedAgeGroupIds.includes(Number(event.age_group_id)))) continue;
     const first = items[0];
     const eventIds = items.map((x) => x.id);
     const groupIds = [...new Set(items.map((x) => x.age_group_id))];
@@ -250,7 +299,9 @@ Deno.serve(async (req) => {
     if (body?.action === "sync_calendar") {
       const installationId = typeof body.installation_id === "string" ? body.installation_id.trim() : "";
       const seniorCode = typeof body.senior_code === "string" ? body.senior_code : "";
-      if (!installationId || !seniorCode) return response({ error: "Senior access is required" }, 401);
+      const coachCode = typeof body.coach_code === "string" ? body.coach_code : "";
+      const selectedAgeGroups = Array.isArray(body.selected_age_groups) ? body.selected_age_groups : [];
+      if (!installationId || (!seniorCode && !coachCode)) return response({ error: "Access is required" }, 401);
       const url = Deno.env.get("SUPABASE_URL");
       const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (!url || !key) return response({ error: "Service unavailable" }, 500);
@@ -259,14 +310,39 @@ Deno.serve(async (req) => {
         requested_installation_id: installationId
       });
       if (installationError || !personId) return response({ error: "Access denied" }, 401);
-      const { data: seniorVerified, error: seniorError } = await adminClient.rpc("verify_access_code", {
-        supplied_code: seniorCode,
-        code_type: "senior"
-      });
-      if (seniorError || seniorVerified !== true) return response({ error: "Invalid Senior access code" }, 401);
+
+      let selectedAgeGroupIds: number[] | null = null;
+      if (seniorCode) {
+        const { data: seniorVerified, error: seniorError } = await adminClient.rpc("verify_access_code_for_installation", {
+          supplied_code: seniorCode,
+          code_type: "senior",
+          supplied_installation_id: installationId
+        });
+        if (seniorError || seniorVerified !== true) return response({ error: "Invalid Senior access code" }, 401);
+      } else {
+        if (selectedAgeGroups.length === 0 || selectedAgeGroups.some((name: any) => typeof name !== "string")) {
+          return response({ error: "Select your age groups before synchronising availability" }, 403);
+        }
+        const { data: coachVerified, error: coachError } = await adminClient.rpc("verify_access_code_for_installation", {
+          supplied_code: coachCode,
+          code_type: "coach",
+          supplied_installation_id: installationId
+        });
+        if (coachError || coachVerified !== true) return response({ error: "Invalid Coach access code" }, 401);
+        const { data: activeGroups, error: groupsError } = await adminClient
+          .from("age_groups").select("id,age_group,display_name").eq("active", true);
+        if (groupsError) return response({ error: "Unable to verify selected age groups" }, 500);
+        selectedAgeGroupIds = (activeGroups ?? [])
+          .filter((group: any) => selectedAgeGroups.includes(group.age_group) || selectedAgeGroups.includes(group.display_name))
+          .map((group: any) => Number(group.id));
+        if (selectedAgeGroupIds.length !== new Set(selectedAgeGroups).size) {
+          return response({ error: "One or more selected age groups are no longer active" }, 403);
+        }
+      }
+
       const synced = await syncCurrentSeasonEvents(adminClient, new Intl.DateTimeFormat("en-CA", {
         timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit",
-      }).format(new Date()));
+      }).format(new Date()), selectedAgeGroupIds);
       return response({ success: true, synced_fixture_count: synced.length, calendar_links: synced });
     }
 
@@ -282,6 +358,11 @@ Deno.serve(async (req) => {
 
     const parentAccess = await authenticateParent(supabase, parentName, parentPin, true);
     if (!parentAccess.ok) return response({ error: parentAccess.error }, parentAccess.status);
+    const parentAccountId = Number(parentAccess.account?.id);
+    const { data: familyMembership, error: familyMembershipError } = await supabase
+      .from("match_parent_family_members").select("family_id").eq("parent_access_id", parentAccountId).maybeSingle();
+    if (familyMembershipError) return response({ error: "Unable to load family access" }, 500);
+    const familyId = familyMembership?.family_id ?? null;
 
     // Always use the currently active club age groups for Parent Home display.
     // This keeps age-group lists and "all age groups" detection in step with Senior settings.
@@ -333,7 +414,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from("match_submissions")
         .select(`
-          id, fixture_id, parent_name, submitted_at, updated_at, edit_lock_expires_at,
+          id, fixture_id, parent_name, family_id, submitted_at, updated_at, edit_lock_expires_at,
           match_availability ( id, child_name, age_group_id, school_year, availability )
         `)
         .in("fixture_id", ids);
@@ -349,7 +430,9 @@ Deno.serve(async (req) => {
     }
 
     const ownSubmissions = submissions.filter((s: any) =>
-      normalise(s.parent_name) === normalise(parentName)
+      familyId
+        ? Number(s.family_id) === Number(familyId)
+        : normalise(s.parent_name) === normalise(parentName)
     );
 
     // Reissue a private edit token only for this deliberate name lookup.
@@ -451,7 +534,7 @@ Deno.serve(async (req) => {
     for (const event of calendarRows ?? []) {
       if (!activeAgeGroupIds.has(Number(event.age_group_id))) continue;
       const key = [
-        event.event_date, event.title, event.event_type, event.match_location ?? "",
+        event.event_date, event.title, event.event_type, event.event_type === "match" ? (event.match_location || "home") : (event.match_location ?? ""),
         String(event.start_time ?? "").slice(0, 5), String(event.end_time ?? "").slice(0, 5),
         event.venue ?? "", event.notes ?? "", event.availability_enabled === true ? "on" : "off",
       ].join("|");
