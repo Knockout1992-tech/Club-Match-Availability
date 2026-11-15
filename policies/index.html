@@ -133,7 +133,8 @@
     cancelled_fixture_responses: "Cancelled fixture responses",
     parent_family_links: "Parent/family account links",
     invitation_tokens: "Invitation tokens",
-    security_logs: "Security and access logs",
+    security_logs: "Club Check-In installation access logs",
+    parent_portal_security_audit: "Parent Portal security and access audit",
     archived_players: "Archived player records"
   };
   function safe(value) {
@@ -156,6 +157,8 @@
         return "After acceptance, revocation or expiry, at the next daily retention run (scheduled for 03:15 UTC).";
       case "security_logs":
         return n + " month" + (n === 1 ? "" : "s") + " for club-controlled installation access-attempt logs only; supplier-held logs follow supplier settings.";
+      case "parent_portal_security_audit":
+        return n + " month" + (n === 1 ? "" : "s") + " for Parent Portal security and access audit events. Records include relevant attempted names, account/child references where known, event outcomes and reasons. PINs, PIN hashes and authentication tokens are never recorded.";
       case "archived_players":
         return n + " completed season" + (n === 1 ? "" : "s") + " after archiving; identifiable player details are then anonymised.";
       default:
