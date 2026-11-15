@@ -180,7 +180,7 @@
     const access=document.getElementById("policy-access-roles");
     if(access && Array.isArray(c.access_roles)){
       access.innerHTML=c.access_roles.map(r=>{
-        const role = r.role === "Senior administrators" ? "Administrators" : r.role === "System administrator" ? "System administrators" : r.role;
+        const role = r.role;
         const description = role === "Coaches"
           ? "Can see the names of all age groups and use the app for coaching and attendance-management activities."
           : r.description;
@@ -192,7 +192,7 @@
     if(owner)owner.textContent=c.document_owner||"";
     const table=document.querySelector("#responsibilities table tbody");
     if(table && Array.isArray(c.roles)){
-      table.innerHTML=c.roles.map(r=>{const role=r.role==="Senior administrators"?"Administrators":r.role==="System administrator"?"System administrators":r.role;return "<tr><td>"+safe(role)+"</td><td>"+safe(r.responsibility)+"</td></tr>";}).join("");
+      table.innerHTML=c.roles.map(r=>"<tr><td>"+safe(r.role)+"</td><td>"+safe(r.responsibility)+"</td></tr>").join("");
     }
   }
   async function load() {
