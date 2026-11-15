@@ -65,7 +65,7 @@
 </section>
 <section class="policy-card" id="acceptable-use">
 <h2>2. Acceptable use policy</h2>
-<p>This policy applies to coaches, senior administrators and anyone given access to the protected areas of Club Check-In.</p>
+<p>This policy applies to coaches, administrators and system administrators who are given access to the protected areas of Club Check-In.</p>
 <ul>
 <li>Access is personal and must only be used by the person it was issued to.</li>
 <li>Coaches must use player and attendance information only for legitimate coaching and club administration purposes, and only to the extent needed for their role. They must not access, use or share information out of curiosity or for personal purposes.</li>
@@ -100,7 +100,7 @@
 
 <tr><td>System administrator</td><td>Maintain the application, configure authorised access, apply security updates and support technical investigations.</td></tr>
 <tr><td>Coaches</td><td>Use only the information needed for their authorised teams and follow the acceptable use rules.</td></tr>
-<tr><td>Senior administrators</td><td>Manage player and user records only within their authorised club responsibilities.</td></tr>
+<tr><td>Administrators</td><td>Manage player and user records only within their authorised club responsibilities.</td></tr>
 </tbody></table>
 
 <h3>Data incidents</h3>
@@ -173,7 +173,7 @@
     draft.hidden=!draftText;}
     const metadata=document.getElementById("policy-metadata");
     if(metadata){metadata.innerHTML=[
-      ["Document owner",c.document_owner],["Approval status",c.approval_status],["Approval date",c.approval_date],
+      ["Document owner",c.document_owner],["Approval status",c.approval_status],["Approval date",String(c.approval_date||"").trim()||"Not yet recorded"],
       ["Review frequency",c.review_frequency],["Next review",c.next_review]
     ].filter(([,value])=>String(value||"").trim()).map(([label,value])=>"<li><strong>"+safe(label)+":</strong> "+safe(value)+"</li>").join("");}
     set("policy-controller-description",c.controller_description);
@@ -182,10 +182,11 @@
     const access=document.getElementById("policy-access-roles");
     if(access && Array.isArray(c.access_roles)){
       access.innerHTML=c.access_roles.map(r=>{
-        const description = r.role === "Coaches"
+        const role = r.role === "Senior administrators" ? "Administrators" : r.role === "System administrator" ? "System administrators" : r.role;
+        const description = role === "Coaches"
           ? "Can see the names of all age groups and use the app for coaching and attendance-management activities."
           : r.description;
-        return "<li><strong>"+safe(r.role)+":</strong> "+safe(description)+"</li>";
+        return "<li><strong>"+safe(role)+":</strong> "+safe(description)+"</li>";
       }).join("");
     }
     set("policy-privacy-contact",c.privacy_contact);
@@ -193,7 +194,7 @@
     if(owner)owner.textContent=c.document_owner||"";
     const table=document.querySelector("#responsibilities table tbody");
     if(table && Array.isArray(c.roles)){
-      table.innerHTML=c.roles.map(r=>"<tr><td>"+safe(r.role)+"</td><td>"+safe(r.responsibility)+"</td></tr>").join("");
+      table.innerHTML=c.roles.map(r=>{const role=r.role==="Senior administrators"?"Administrators":r.role==="System administrator"?"System administrators":r.role;return "<tr><td>"+safe(role)+"</td><td>"+safe(r.responsibility)+"</td></tr>";}).join("");
     }
   }
   async function load() {
