@@ -377,7 +377,9 @@ async function completePersonalLogin(data, authMethod = "pin") {
     startAppSessionTimeout();
     currentAccessPIN = data.session_token;
     currentSeniorPIN = currentUserRoles.includes("admin") ? data.session_token : null;
-    currentRole = currentUserRoles.includes("coach") ? "coach" : "senior";
+    // Admin takes precedence at login. A dual-role user enters the full Admin view.
+    // Switching to Coach later reloads only their assigned age groups.
+    currentRole = currentUserRoles.includes("admin") ? "senior" : "coach";
 
     if (currentRole === "coach") {
         const assigned = getAssignedCoachAgeGroups();
@@ -455,33 +457,73 @@ async function revokePersonalSession() {
    ROLE SWITCHING FOR DUAL-ROLE PERSONAL ACCOUNTS
    ===================================================== */
 
-function showAdminDashboardFromCoach() {
+async function showAdminDashboardFromCoach() {
     if (!currentUserRoles.includes("admin") || !currentAuthSessionToken) {
         console.warn("Admin dashboard access denied: no active Admin session.");
         return;
     }
 
+    // Reload using the Admin role so the full club player list is restored.
     currentRole = "senior";
     currentSeniorPIN = currentAuthSessionToken;
     currentAccessPIN = currentAuthSessionToken;
-    showSeniorDashboard();
+
+    const loaded = await loadPlayersFromSupabase();
+    if (!loaded) {
+        currentRole = "coach";
+        await appAlert(
+            "Unable to load the full club player list. Your Coach access has been retained.",
+            "Admin view unavailable",
+            "danger"
+        );
+        return;
+    }
+
+    currentAgeGroup = null;
+    selectedAgeGroups = [];
+    await showSeniorDashboard();
 }
 
-function showCoachAreaFromAdmin() {
+async function showCoachAreaFromAdmin() {
     if (!currentUserRoles.includes("coach") || !currentAuthSessionToken) {
         console.warn("Coach area access denied: no active Coach session.");
         return;
     }
 
+    // Reload under the Coach role. This prevents the Admin-wide player list
+    // remaining in memory when a dual-role user enters the Coach area.
     currentRole = "coach";
     currentAccessPIN = currentAuthSessionToken;
 
+    const loaded = await loadPlayersFromSupabase();
+    if (!loaded) {
+        currentRole = "senior";
+        currentSeniorPIN = currentAuthSessionToken;
+        await appAlert(
+            "Unable to load your assigned player groups. Your Admin access has been retained.",
+            "Coach view unavailable",
+            "danger"
+        );
+        return;
+    }
+
     const assigned = getAssignedCoachAgeGroups();
+    if (!assigned.length) {
+        currentAgeGroup = null;
+        selectedAgeGroups = [];
+        await appAlert(
+            "Your account has no active age groups assigned. Please contact an Admin.",
+            "No age groups assigned",
+            "warning"
+        );
+        return;
+    }
+
     selectedAgeGroups = assigned.length === 1 ? [...assigned] : [];
 
     if (assigned.length === 1) {
         currentAgeGroup = assigned[0];
-        showCoachDashboard();
+        await showCoachDashboard();
     } else {
         currentAgeGroup = null;
         showCoachAgeGroups();
