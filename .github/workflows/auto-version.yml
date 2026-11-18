@@ -32,7 +32,7 @@ jobs:
           const { execFileSync } = require('child_process');
 
           function increment(version) {
-            const match = version.match(/^(\\d+)\\.(\\d+)\\.(\\d+)$/);
+            const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
             if (!match) throw new Error('Invalid semantic version: ' + version);
             let major = Number(match[1]);
             let minor = Number(match[2]);
@@ -51,7 +51,7 @@ jobs:
           } else {
             changedFiles = execFileSync('git', ['diff', '--name-only', 'HEAD^', 'HEAD'], { encoding: 'utf8' });
           }
-          const changed = changedFiles.split('\\n').filter(Boolean);
+          const changed = changedFiles.split('\n').filter(Boolean);
           const pwaChanged = changed.some(file => file.startsWith('club-check-in/'));
           console.log('Changed files:', changed);
           console.log('Club Check-In changed:', pwaChanged);
@@ -59,12 +59,12 @@ jobs:
           // Parent portal versioning (existing behaviour).
           const parentCurrent = fs.readFileSync('VERSION', 'utf8').trim();
           const parentNext = increment(parentCurrent);
-          fs.writeFileSync('VERSION', parentNext + '\\n');
+          fs.writeFileSync('VERSION', parentNext + '\n');
 
           let parentHtml = fs.readFileSync('index.html', 'utf8');
-          const css = /(style\\.css\\?v=)\\d+\\.\\d+\\.\\d+/g;
-          const js = /(app\\.js\\?v=)\\d+\\.\\d+\\.\\d+/g;
-          const footer = /(<span class="app-version">v)\\d+\\.\\d+\\.\\d+(<\\/span>)/;
+          const css = /(style\.css\?v=)\d+\.\d+\.\d+/g;
+          const js = /(app\.js\?v=)\d+\.\d+\.\d+/g;
+          const footer = /(<span class="app-version">v)\d+\.\d+\.\d+(<\/span>)/;
           if (!css.test(parentHtml) || !js.test(parentHtml) || !footer.test(parentHtml)) {
             throw new Error('Could not find expected parent portal CSS, JS and footer version references.');
           }
@@ -82,7 +82,7 @@ jobs:
             let config = fs.readFileSync(configPath, 'utf8');
             let worker = fs.readFileSync(workerPath, 'utf8');
 
-            const versionPattern = /const APP_VERSION = "V(\\d+\\.\\d+\\.\\d+)";/g;
+            const versionPattern = /const APP_VERSION = "V(\d+\.\d+\.\d+)";/g;
             const versionMatches = [...config.matchAll(versionPattern)];
             if (versionMatches.length !== 1) {
               throw new Error('Expected exactly one APP_VERSION in ' + configPath);
@@ -91,7 +91,7 @@ jobs:
             const pwaNext = increment(pwaCurrent);
             config = config.replace(versionPattern, 'const APP_VERSION = "V' + pwaNext + '";');
 
-            const cachePattern = /(const CACHE_NAME = "club-check-in-v)(\\d+)(-[^"]*";)/;
+            const cachePattern = /(const CACHE_NAME = "club-check-in-v)(\d+)(-[^"]*";)/;
             const cacheMatch = worker.match(cachePattern);
             if (!cacheMatch) throw new Error('Could not find Club Check-In service-worker cache name.');
             const cacheNext = Number(cacheMatch[2]) + 1;
