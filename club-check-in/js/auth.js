@@ -68,7 +68,7 @@ function renderPersonalLogin(message = "") {
                     <button class="secondary-button personal-login-secondary" onclick="resetPersonalLoginName()">Use a different name</button>
                 `}
                 ${getInstallButtonHTML()}
-                <a class="policy-link" href="/policies/" target="_blank" rel="noopener noreferrer">Privacy &amp; Data Protection</a>
+                <a class="policy-link" href="https://rhrfc-mini.pages.dev/policies/" target="_blank" rel="noopener noreferrer">Privacy &amp; Data Protection</a>
                 <div class="welcome-version">${APP_VERSION}</div>
             </div>
         </div>`;
@@ -377,7 +377,6 @@ async function completePersonalLogin(data, authMethod = "pin") {
     startAppSessionTimeout();
     currentAccessPIN = data.session_token;
     currentSeniorPIN = currentUserRoles.includes("admin") ? data.session_token : null;
-    // Coach takes priority at login. Dual-role users can enter Admin explicitly.
     currentRole = currentUserRoles.includes("coach") ? "coach" : "senior";
 
     if (currentRole === "coach") {
@@ -387,9 +386,9 @@ async function completePersonalLogin(data, authMethod = "pin") {
             logout();
             return;
         }
-        // Load the Coach dashboard across every age group assigned to this user.
+        // Personal Coach accounts always open the groups assigned to them.
+        // Multiple assignments use the combined dashboard rather than a picker.
         selectedAgeGroups = [...assigned];
-        currentAgeGroup = assigned[0];
     }
 
     let loaded = false;
@@ -410,11 +409,7 @@ async function completePersonalLogin(data, authMethod = "pin") {
     }
 
     if (currentRole === "coach") {
-        // Assigned groups are loaded together; do not send assigned coaches
-        // to the manual age-group selection screen.
-        const assigned = getAssignedCoachAgeGroups();
-        selectedAgeGroups = [...assigned];
-        currentAgeGroup = assigned[0] || null;
+        currentAgeGroup = selectedAgeGroups[0] || null;
         await showCoachDashboard();
     } else {
         await showSeniorDashboard();
@@ -464,7 +459,7 @@ async function showAdminDashboardFromCoach() {
         return;
     }
 
-    // Reload using the Admin role so the full club player list is restored.
+    // Reload using the Admin role so the list contains every active player.
     currentRole = "senior";
     currentSeniorPIN = currentAuthSessionToken;
     currentAccessPIN = currentAuthSessionToken;
@@ -472,16 +467,11 @@ async function showAdminDashboardFromCoach() {
     const loaded = await loadPlayersFromSupabase();
     if (!loaded) {
         currentRole = "coach";
-        await appAlert(
-            "Unable to load the full club player list. Your Coach access has been retained.",
-            "Admin view unavailable",
-            "danger"
-        );
+        currentSeniorPIN = null;
+        await appAlert("Unable to load the full club player list. You are still in Coach mode.", "Player load failed", "danger");
         return;
     }
 
-    currentAgeGroup = null;
-    selectedAgeGroups = [];
     await showSeniorDashboard();
 }
 
@@ -491,38 +481,27 @@ async function showCoachAreaFromAdmin() {
         return;
     }
 
-    // Reload under the Coach role. This prevents the Admin-wide player list
-    // remaining in memory when a dual-role user enters the Coach area.
+    const assigned = getAssignedCoachAgeGroups();
+    if (!assigned.length) {
+        await appAlert("Your account has no active age groups assigned. Please contact an Admin.", "No age groups assigned", "warning");
+        return;
+    }
+
+    // Reload using the Coach role so Admin-only players are no longer in memory.
     currentRole = "coach";
+    currentSeniorPIN = null;
     currentAccessPIN = currentAuthSessionToken;
+    selectedAgeGroups = [...assigned];
+    currentAgeGroup = assigned[0];
 
     const loaded = await loadPlayersFromSupabase();
     if (!loaded) {
         currentRole = "senior";
         currentSeniorPIN = currentAuthSessionToken;
-        await appAlert(
-            "Unable to load your assigned player groups. Your Admin access has been retained.",
-            "Coach view unavailable",
-            "danger"
-        );
+        await appAlert("Unable to reload your assigned Coach players. You are still in Admin mode.", "Player load failed", "danger");
         return;
     }
 
-    const assigned = getAssignedCoachAgeGroups();
-    if (!assigned.length) {
-        currentAgeGroup = null;
-        selectedAgeGroups = [];
-        await appAlert(
-            "Your account has no active age groups assigned. Please contact an Admin.",
-            "No age groups assigned",
-            "warning"
-        );
-        return;
-    }
-
-    // Return to the combined dashboard for all groups assigned to this Coach.
-    selectedAgeGroups = [...assigned];
-    currentAgeGroup = assigned[0] || null;
     await showCoachDashboard();
 }
 
