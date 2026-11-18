@@ -69,7 +69,7 @@ function renderShell(
         </main>
 
         <footer class="app-policy-footer">
-            <a href="https://rhrufc-mini.pages.dev/policies/" target="_blank" rel="noopener noreferrer">Privacy &amp; Data Protection</a>
+            <a href="https://rhrufc-mini.pages.dev/policies/">Privacy &amp; Data Protection</a>
         </footer>
 
     `;
