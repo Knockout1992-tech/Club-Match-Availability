@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "club-check-in-v1122-cloudflare-links";
+const CACHE_NAME = "club-check-in-v1123-policy-link-fix";
 
 const APP_SHELL = [
     "./",
