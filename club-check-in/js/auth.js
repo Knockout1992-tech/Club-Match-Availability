@@ -377,9 +377,8 @@ async function completePersonalLogin(data, authMethod = "pin") {
     startAppSessionTimeout();
     currentAccessPIN = data.session_token;
     currentSeniorPIN = currentUserRoles.includes("admin") ? data.session_token : null;
-    // Admin takes precedence at login. A dual-role user enters the full Admin view.
-    // Switching to Coach later reloads only their assigned age groups.
-    currentRole = currentUserRoles.includes("admin") ? "senior" : "coach";
+    // Coach takes priority at login. Dual-role users can enter Admin explicitly.
+    currentRole = currentUserRoles.includes("coach") ? "coach" : "senior";
 
     if (currentRole === "coach") {
         const assigned = getAssignedCoachAgeGroups();
