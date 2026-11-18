@@ -715,11 +715,47 @@ let matchFixtureRefreshBusy = false;
 let matchAdminAgeGroups = [];
 let latestCreatedFixtureLink = null;
 
-const MATCH_AVAILABILITY_URL =
-    "/";
+// The parent portal is hosted at the root of this Cloudflare Pages site.
+const MATCH_AVAILABILITY_URL = window.location.origin + "/";
+const PARENT_PORTAL_URL = MATCH_AVAILABILITY_URL;
 
-const PARENT_PORTAL_URL =
-    "/";
+// Clipboard API is not available in every installed-browser context.
+// Fall back to a temporary textarea when necessary.
+async function copyMatchLinkToClipboard(value) {
+    const text = String(value || "");
+
+    if (!text) throw new Error("There is no link to copy.");
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch (error) {
+            console.warn("Clipboard API unavailable; trying fallback:", error);
+        }
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+        copied = document.execCommand("copy");
+    } finally {
+        textarea.remove();
+    }
+
+    if (!copied) {
+        throw new Error("Your device did not allow the link to be copied.");
+    }
+}
 
 
 function matchAdminEscape(value) {
@@ -1439,7 +1475,7 @@ async function createMatchFixtureFromForm() {
 
 async function copyLatestCentralParentLink() {
     try {
-        await navigator.clipboard.writeText(PARENT_PORTAL_URL);
+        await copyMatchLinkToClipboard(PARENT_PORTAL_URL);
         await appAlert("The central parent home link has been copied.", "Link copied", "success");
     } catch (error) {
         console.error("Copy central link failed:", error);
@@ -1453,7 +1489,7 @@ async function copyLatestMatchFixtureLink() {
         return;
     }
     try {
-        await navigator.clipboard.writeText(latestCreatedFixtureLink);
+        await copyMatchLinkToClipboard(latestCreatedFixtureLink);
         await appAlert("The direct link for this fixture has been copied.", "Fixture link copied", "success");
     } catch (error) {
         console.error("Copy fixture link failed:", error);
@@ -2025,7 +2061,7 @@ async function returnToMatchAdminFixtures() {
 
 async function copyCentralMatchParentLink() {
     try {
-        await navigator.clipboard.writeText(MATCH_AVAILABILITY_URL);
+        await copyMatchLinkToClipboard(MATCH_AVAILABILITY_URL);
         await appAlert("The central parent home link has been copied.", "Link copied", "success");
     } catch (error) {
         console.error("Unable to copy central parent link:", error);
@@ -2047,7 +2083,7 @@ async function copyMatchFixtureLink(fixtureId, parentToken = null) {
             return;
         }
         const fixtureLink = MATCH_AVAILABILITY_URL + "?fixture=" + encodeURIComponent(parentToken);
-        await navigator.clipboard.writeText(fixtureLink);
+        await copyMatchLinkToClipboard(fixtureLink);
         await appAlert("The direct parent link for this fixture has been copied.", "Fixture link copied", "success");
     } catch (error) {
         console.error("Unable to copy individual fixture link:", error);
