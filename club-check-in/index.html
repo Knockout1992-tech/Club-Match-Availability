@@ -1,0 +1,4230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+
+<title>Club Check-In</title>
+
+<link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+
+<style>
+#connectionWarning {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2147483646;
+    background: #8b1e1e;
+    color: #ffffff;
+    padding: 14px;
+    text-align: center;
+    font: 14px Arial, sans-serif;
+    box-sizing: border-box;
+}
+</style>
+</head>
+
+<body>
+
+<div id="connectionWarning" role="alert">
+    <strong>No internet connection</strong><br>
+    Club Check-In needs an internet connection to load and save data.
+    Please reconnect to continue.
+</div>
+
+<div id="app"></div>
+
+<script src="js/config.js"></script>
+<script src="js/helpers.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/ageGroups.js"></script>
+<script src="js/date-helpers.js"></script>
+<script src="js/players.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/senior.js"></script>
+<script src="js/retention-admin.js?v=system-admin-layout-3"></script>
+<script src="js/personal-data-admin.js?v=personal-data-3"></script>
+<script src="js/season-planner.js?v=coach-calendar-8"></script>
+<script src="js/seasons.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/pin.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/diagnostics.js"></script>
+<script src="js/connection.js"></script>
+
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./service-worker.js")
+            .catch(function (error) {
+                console.error(
+                    "Service worker registration failed:",
+                    error
+                );
+            });
+    });
+}
+</script>
+
+<script>
+
+// Coach age group selection ================================
+
+function showCoachAgeGroups() {
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showWelcome()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Select Age Groups
+            </h2>
+
+            <div class="subtitle">
+
+                Select one or more teams. You can manage
+                several age groups in one register.
+
+            </div>
+            ${currentPersonID && currentUserRoles.includes("admin") ? `
+                <button class="secondary-button" style="width:100%;margin-bottom:14px" onclick="showAdminDashboardFromCoach()">Admin Dashboard</button>
+            ` : ""}
+
+            <div class="multi-age-summary">
+
+                <strong>
+                    Selected:
+                </strong>
+
+                ${
+                    selectedAgeGroups.length
+                    ? escapeHTML(
+                        selectedAgeGroups.join(
+                            " + "
+                        )
+                    )
+                    : "None selected"
+                }
+
+            </div>
+
+            <div class="age-grid">
+
+                ${
+                    (currentPersonID ? getAssignedCoachAgeGroups() : getActiveAgeGroups()).map(age => {
+
+                        const selected =
+                            selectedAgeGroups
+                                .includes(age);
+
+                        return `
+
+                            <button
+                                class="
+                                    age-button
+                                    ${
+                                        selected
+                                        ? "selected-age"
+                                        : ""
+                                    }
+                                "
+                                onclick="
+                                    toggleCoachAgeGroup(
+                                        '${age}'
+                                    )
+                                ">
+
+                                ${age}
+
+                            </button>
+
+                        `;
+
+                    }).join("")
+                }
+
+            </div>
+
+            <br>
+
+            <div class="multi-age-actions">
+
+                <button
+                    class="secondary-button"
+                    onclick="
+                        selectCoachAgeGroups(
+                         (currentPersonID ? getAssignedCoachAgeGroups() : getActiveAgeGroups())
+                        )
+                    ">
+
+                    Select All
+
+                </button>
+
+                <button
+                    class="secondary-button"
+                    onclick="
+                        selectedAgeGroups = [];
+                        currentAgeGroup = null;
+                        showCoachAgeGroups();
+                    ">
+
+                    Clear
+
+                </button>
+
+            </div>
+
+            <button
+                class="primary-button"
+                onclick="
+                    openSelectedCoachAgeGroups()
+                "
+                ${
+                    selectedAgeGroups.length === 0
+                    ? "disabled"
+                    : ""
+                }>
+
+                Continue
+
+            </button>
+
+        </div>
+
+    `);
+
+}
+
+function toggleCoachAgeGroup(
+    ageGroup
+) {
+
+    if (
+        selectedAgeGroups.includes(
+            ageGroup
+        )
+    ) {
+
+        selectedAgeGroups =
+            selectedAgeGroups.filter(
+                age =>
+                    age !== ageGroup
+            );
+
+    } else {
+
+        selectedAgeGroups.push(
+            ageGroup
+        );
+
+        selectedAgeGroups =
+            ageGroups.filter(
+                age =>
+                    selectedAgeGroups
+                        .includes(age)
+            );
+
+    }
+
+    showCoachAgeGroups();
+
+}
+
+function selectCoachAgeGroups(
+    groups
+) {
+
+    selectedAgeGroups =
+        [...groups];
+
+    showCoachAgeGroups();
+
+}
+
+async function openSelectedCoachAgeGroups() {
+
+    if (
+        selectedAgeGroups.length === 0
+    ) {
+
+        await appAlert(
+            "Please select at least one age group.",
+            "Select an age group",
+            "warning"
+        );
+
+        return;
+
+    }
+
+    currentAgeGroup =
+        selectedAgeGroups[0];
+
+    showCoachDashboard();
+
+}
+
+// Coach Dashboard ==========================================
+
+
+async function showCoachDashboard() {
+
+    const groups =
+        selectedAgeGroups.length
+        ? selectedAgeGroups
+        : [currentAgeGroup];
+
+    // Back always returns to the login screen and ends the current session.
+    const showAdminDashboardButton =
+        currentPersonID && currentUserRoles.includes("admin");
+
+    if (
+        currentRole !== "coach" ||
+        !currentAccessPIN
+    ) {
+        await appAlert(
+            "Please log in as Coach again.",
+            "Login required",
+            "warning"
+        );
+        return;
+    }
+
+    let activeCount = 0;
+    let presentCount = 0;
+
+    const todayKey = getTodayKey();
+
+    const { data: registers, error } =
+        await supabaseClient.rpc(
+            "get_today_attendance_dashboard",
+            {
+                requested_date: todayKey,
+                requested_age_groups: groups,
+                supplied_code: currentAccessPIN,
+                supplied_role: "coach"
+            }
+        );
+
+    if (error) {
+        console.error(
+            "Dashboard attendance load failed:",
+            error
+        );
+
+        await appAlert(
+            "Unable to load today's attendance. Please try again.",
+            "Attendance unavailable",
+            "danger"
+        );
+
+        return;
+    }
+
+    if (!Array.isArray(registers)) {
+        console.error(
+            "Dashboard RPC returned invalid data."
+        );
+
+        await appAlert(
+            "Unable to load today's attendance. Please try again.",
+            "Attendance unavailable",
+            "danger"
+        );
+
+        return;
+    }
+
+    for (const ageGroup of groups) {
+
+        const active =
+            getActivePlayers(ageGroup);
+
+        activeCount += active.length;
+
+        const registerRow =
+            registers.find(
+                register =>
+                    register.age_group === ageGroup
+            );
+
+        if (!registerRow) {
+            continue;
+        }
+
+        const attendance = {};
+
+        (registerRow.attendance || []).forEach(record => {
+            attendance[record.player_id] =
+                record.present === true;
+        });
+
+        attendanceRegisters[todayKey] =
+            attendanceRegisters[todayKey] || {};
+
+        attendanceRegisters[todayKey][ageGroup] = {
+            id: registerRow.id,
+            submitted: registerRow.submitted,
+            closedAutomatically:
+                registerRow.closed_automatically,
+            attendance
+        };
+
+        presentCount += active.filter(
+            player =>
+                attendance[player.id] === true
+        ).length;
+    }
+
+    const absentCount =
+        activeCount - presentCount;
+
+    renderShell(`
+
+        <div class="card coach-dashboard-card">
+
+            <div class="coach-dashboard-top-actions">
+                <button class="back-button" onclick="logout()">← Back</button>
+                ${showAdminDashboardButton ? `
+                    <button class="coach-dashboard-admin-button" onclick="showAdminDashboardFromCoach()">Admin Dashboard</button>
+                ` : ""}
+            </div>
+
+            <h2 class="coach-dashboard-title">
+                ${
+                    groups.length === 1
+                    ? groups[0]
+                    : "Multiple Age Groups"
+                }
+            </h2>
+
+            <div class="subtitle">
+
+                ${groups.join(" + ")}
+
+                <br>
+
+                Coach Dashboard
+
+            </div>
+            <div class="stats coach-dashboard-stats">
+
+                <div class="stat">
+                    <div class="stat-number">${activeCount}</div>
+                    <div class="stat-label">Players</div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-number">${presentCount}</div>
+                    <div class="stat-label">Present</div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-number">${absentCount}</div>
+                    <div class="stat-label">Absent</div>
+                </div>
+
+            </div>
+
+            <div id="coachUpcomingSummary" class="coach-upcoming-summary">
+                <div class="coach-upcoming-loading">Loading upcoming events…</div>
+            </div>
+
+            <div class="menu-grid coach-dashboard-menu">
+
+                <button
+                    class="menu-button"
+                    onclick="showRegister()">
+                    Today's<br>Register
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showRoster()">
+                    Roster
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showSessionHistory()">
+                    Session<br>History
+                </button>
+
+                <button
+    class="menu-button blue"
+    onclick="showCoachSeasonPlanner()">
+    Season<br>Calendar
+</button>
+
+            </div>
+
+        </div>
+
+    `);
+
+    loadDashboardUpcoming("coachUpcomingSummary", "coach", groups);
+
+}
+
+async function loadDashboardUpcoming(hostId, role, groups) {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+
+    try {
+        const plannerResult = role === "senior"
+            ? await supabaseClient.rpc("get_season_planner", {
+                supplied_code: currentSeniorPIN,
+                requested_season_id: null
+            })
+            : await supabaseClient.rpc("get_coach_season_planner", {
+                supplied_code: currentAccessPIN,
+                requested_age_groups: [...groups]
+            });
+        if (plannerResult.error) throw plannerResult.error;
+
+        const today = getTodayKey();
+        const events = (plannerResult.data?.events || [])
+            .filter(event =>
+                event.event_date >= today &&
+                !["cancelled"].includes(String(event.event_type || "").toLowerCase())
+            )
+            .sort((a, b) =>
+                a.event_date.localeCompare(b.event_date) ||
+                String(a.start_time || "").localeCompare(String(b.start_time || ""))
+            );
+
+        host.innerHTML = "";
+        if (!events.length) {
+            const empty = document.createElement("div");
+            empty.className = "coach-upcoming-empty";
+            empty.textContent = "No upcoming events scheduled.";
+            host.appendChild(empty);
+            return;
+        }
+
+        const first = events[0];
+        const groupKey = event => [
+            event.event_date, event.title, event.event_type, event.match_location || "",
+            event.start_time || "", event.end_time || "", event.venue || "",
+            event.notes || "", event.availability_enabled === false ? "off" : "on"
+        ].join("|");
+        const matching = events.filter(event => groupKey(event) === groupKey(first));
+        const allGroups = plannerResult.data?.age_groups || [];
+        const isClubWide = allGroups.length > 0 &&
+            new Set(matching.map(event => String(event.age_group_id))).size === allGroups.length;
+        const ageNames = [...new Set(matching.map(event =>
+            event.display_name || event.age_group
+        ).filter(Boolean))];
+        const ageLabel = isClubWide ? "All age groups" : ageNames.join(" · ");
+
+        const typeLabel = first.event_type === "match"
+            ? (first.match_location === "away" ? "Away match" : "Home match")
+            : ({ training: "Training", holiday: "Holiday / break", other: "Other event" }[first.event_type] || "Club event");
+        const dateLabel = new Date(first.event_date + "T12:00:00").toLocaleDateString("en-GB", {
+            weekday: "short", day: "numeric", month: "short"
+        });
+        const timeLabel = first.start_time
+            ? String(first.start_time).slice(0, 5) +
+                (first.end_time ? "–" + String(first.end_time).slice(0, 5) : "")
+            : "Time not set";
+
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "coach-upcoming-card";
+        card.addEventListener("click", () => {
+            if (role === "senior") showSeasonPlanner();
+            else showCoachSeasonPlanner();
+        });
+
+        const copy = document.createElement("span");
+        copy.className = "coach-upcoming-copy";
+
+        const eyebrow = document.createElement("small");
+        eyebrow.className = "coach-upcoming-eyebrow";
+        eyebrow.textContent = "UP NEXT";
+
+        const title = document.createElement("strong");
+        title.className = "coach-upcoming-title";
+        title.textContent = first.title || typeLabel;
+
+        const meta = document.createElement("span");
+        meta.className = "coach-upcoming-meta";
+        meta.textContent = [typeLabel, dateLabel, timeLabel, ageLabel, first.venue]
+            .filter(Boolean).join(" · ");
+        copy.append(eyebrow, title, meta);
+
+        // Availability is shown inside the same Up Next card, never as a separate panel.
+        if (first.availability_enabled === true && first.linked_fixture_id) {
+            try {
+                const fixtureData = await matchAdminCall("admin_fixtures", { action: "list" });
+                const fixture = (fixtureData.fixtures || []).find(item =>
+                    Number(item.id) === Number(first.linked_fixture_id)
+                );
+                if (fixture) {
+                    const availability = document.createElement("span");
+                    availability.className = "coach-upcoming-availability";
+                    const available = Number(fixture.available_count || 0);
+                    const unavailable = Number(fixture.unavailable_count || 0);
+
+                    const availableCount = document.createElement("span");
+                    availableCount.className = "coach-upcoming-available";
+                    availableCount.textContent = available + " available";
+
+                    const unavailableCount = document.createElement("span");
+                    unavailableCount.className = "coach-upcoming-unavailable";
+                    unavailableCount.textContent = unavailable + " unavailable";
+
+                    availability.append(availableCount, unavailableCount);
+                    copy.appendChild(availability);
+                }
+            } catch (availabilityError) {
+                console.warn("Up Next availability counts unavailable:", availabilityError);
+            }
+        }
+
+        const arrow = document.createElement("span");
+        arrow.className = "coach-upcoming-arrow";
+        arrow.textContent = "›";
+
+        card.append(copy, arrow);
+        host.appendChild(card);
+    } catch (error) {
+        console.warn("Dashboard upcoming events unavailable:", error);
+        host.innerHTML = "";
+        const fallback = document.createElement("div");
+        fallback.className = "coach-upcoming-empty";
+        fallback.textContent = "Upcoming events are temporarily unavailable.";
+        host.appendChild(fallback);
+    }
+}
+
+// Mult-age register ===========================
+
+async function showRegister() {
+
+    const groups =
+        selectedAgeGroups.length
+        ? selectedAgeGroups
+        : [currentAgeGroup];
+
+    for (const ageGroup of groups) {
+
+        if (!getTodayRegister(ageGroup)) {
+
+            await ensureTodayAttendanceRegister(
+                ageGroup
+            );
+
+        }
+
+    }
+
+    const registerExists =
+        groups.some(
+            ageGroup =>
+                getTodayRegister(
+                    ageGroup
+                )
+        );
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showCoachDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Today's Register
+            </h2>
+
+            <div class="subtitle">
+
+                ${groups.join(" + ")}
+
+                ·
+
+                ${getDisplayDate(
+                    getTodayKey()
+                )}
+
+            </div>
+
+            ${
+                !registerExists
+
+                ? `
+
+                    <div class="info-box">
+
+                        Today's registers have not been
+                        opened yet.
+
+                        <br><br>
+
+                        Opening the register will create
+                        one register for each selected
+                        age group.
+
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="
+                            openTodayRegister()
+                        ">
+
+                        Take Register
+
+                    </button>
+
+                `
+
+                : `
+
+                    <div class="
+                        register-status
+                        register-open
+                    ">
+
+                        Register open — you can
+                        edit it throughout today.
+
+                    </div>
+
+                    ${
+                        groups.map(
+                            ageGroup => {
+
+                                const register =
+                                    getTodayRegister(
+                                        ageGroup
+                                    );
+
+                                const active =
+                                    getActivePlayers(
+                                        ageGroup
+                                    );
+
+                                if (!register) {
+
+                                    return `
+
+                                        <div
+                                            class="
+                                                info-box
+                                                warning-box
+                                            ">
+
+                                            ${ageGroup} register
+                                            has not been opened.
+
+                                            <br><br>
+
+                                            <button
+                                                class="
+                                                    secondary-button
+                                                "
+                                                onclick="
+                                                    openAgeGroupRegister(
+                                                        '${ageGroup}'
+                                                    )
+                                                ">
+
+                                                Open ${ageGroup}
+
+                                            </button>
+
+                                        </div>
+
+                                    `;
+
+                                }
+
+                                return `
+
+                                    <div class="age-section">
+
+                                        <div class="
+                                            age-section-title
+                                        ">
+
+                                            <span>
+                                                ${ageGroup}
+                                            </span>
+
+                                            <span
+                                                class="
+                                                    age-section-count
+                                                ">
+
+                                                ${active.length}
+                                                player${
+                                                    active.length === 1
+                                                    ? ""
+                                                    : "s"
+                                                }
+
+                                            </span>
+
+                                        </div>
+
+                                        ${
+                                            active.length === 0
+
+                                            ? `
+
+                                                <div class="empty">
+
+                                                    No active players.
+
+                                                </div>
+
+                                            `
+
+                                            : active.map(
+                                                player => {
+
+                                                    const present =
+                                                        register.attendance[
+                                                            player.id
+                                                        ] === true;
+
+                                                    return `
+
+                                                        <div
+                                                            class="
+                                                                player-row
+                                                            ">
+
+                                                            <div
+                                                                class="
+                                                                    player-info
+                                                                ">
+
+                                                                <div
+                                                                    class="
+                                                                        player-name
+                                                                    ">
+
+                                                                    ${escapeHTML(
+                                                                        player.name
+                                                                    )}
+
+                                                                </div>
+
+                                                            </div>
+
+                                                            <label
+                                                                class="
+                                                                    toggle
+                                                                    ${
+                                                                        present
+                                                                        ? "present"
+                                                                        : "absent"
+                                                                    }
+                                                                ">
+
+                                                                <input
+                                                                    type="checkbox"
+                                                                    data-player-id="${escapeHTML(player.id)}"
+                                                                    ${
+                                                                        present
+                                                                        ? "checked"
+                                                                        : ""
+                                                                    }
+                                                                    onchange="setAttendance(this.dataset.playerId, this.checked)"
+                                                                >
+
+                                                                <span
+                                                                    class="
+                                                                        toggle-knob
+                                                                    ">
+                                                                </span>
+
+                                                                <span
+                                                                    class="
+                                                                        toggle-label
+                                                                    ">
+
+                                                                    ${
+                                                                        present
+                                                                        ? "PRESENT"
+                                                                        : "ABSENT"
+                                                                    }
+
+                                                                </span>
+
+                                                            </label>
+
+                                                        </div>
+
+                                                    `;
+
+                                                }
+                                            ).join("")
+                                        }
+
+                                    </div>
+
+                                `;
+
+                            }
+                        ).join("")
+                    }
+
+                    <br>
+
+                    <button
+                        class="green-button"
+                        onclick="
+                            showCoachAddPlayer()
+                        ">
+
+                        + Add Player
+
+                    </button>
+
+                    <br><br>
+
+                    <button
+                        class="primary-button"
+                        onclick="
+                            saveSession()
+                        ">
+
+                        Save Today's Registers
+
+                    </button>
+
+                `
+
+            }
+
+        </div>
+
+    `);
+
+}
+
+// Roster ===========================
+
+function showRoster() {
+
+    const groups = selectedAgeGroups.length
+        ? selectedAgeGroups
+        : [currentAgeGroup];
+
+    renderShell(`
+        <div class="card">
+
+            <button class="back-button" onclick="showCoachDashboard()">
+                ← Back
+            </button>
+
+            <h2>Roster</h2>
+
+            <div class="subtitle">
+                ${groups.join(" + ")} — Mark players you believe are registered on GMS
+            </div>
+
+            ${
+                groups.map(ageGroup => {
+
+                    const active = getActivePlayers(ageGroup);
+
+                    return `
+                        <div class="age-section">
+
+                            <div class="age-section-title">
+                                <span>${escapeHTML(ageGroup)}</span>
+                                <span class="age-section-count">${active.length}</span>
+                            </div>
+
+                            ${
+                                active.length === 0
+                                    ? `<div class="empty-state">No active players in this age group.</div>`
+                                    : active.map(player => {
+
+                                        const seniorConfirmed = player.gms === true;
+                                        const coachSuggested = player.coachGmsSuggestion === true;
+                                        const toggleOn = seniorConfirmed || coachSuggested;
+
+                                        return `
+                                            <div class="player-row player-management-row">
+
+                                                <div class="player-info">
+                                                    <div class="player-name">
+                                                        ${escapeHTML(player.name)}
+                                                    </div>
+
+                                                    ${
+                                                        !seniorConfirmed && coachSuggested
+                                                            ? `<div class="player-small">Coach has suggested GMS</div>`
+                                                            : ""
+                                                    }
+                                                </div>
+
+                                                <div class="row-actions">
+
+                                                    <button
+                                                        class="secondary-button small-button"
+                                                        onclick='renamePlayer(${JSON.stringify(player.id)})'>
+                                                        Edit Name
+                                                    </button>
+
+                                                    <label class="toggle gms-toggle ${toggleOn ? "confirmed" : "not-confirmed"} ${seniorConfirmed ? "locked" : ""}">
+
+                                                        <input
+                                                            type="checkbox"
+                                                            ${toggleOn ? "checked" : ""}
+                                                            ${seniorConfirmed ? "disabled" : ""}
+                                                            onchange='setCoachGMSSuggestion(${JSON.stringify(player.id)}, this.checked)'>
+
+                                                        <span class="toggle-knob"></span>
+                                                        <span class="toggle-label"></span>
+
+                                                    </label>
+
+                                                </div>
+
+                                            </div>
+                                        `;
+
+                                    }).join("")
+                            }
+
+                            <br>
+
+                            <button
+                                class="green-button"
+                                onclick='showCoachAddPlayer(true, ${JSON.stringify(ageGroup)})'>
+                                + ADD PLAYER
+                            </button>
+
+                        </div>
+                    `;
+
+                }).join("")
+            }
+
+            <div class="info-box">
+                Coaches can suggest GMS registration status. Admins confirm registration.
+            </div>
+
+        </div>
+    `);
+}
+
+// Coach add / Restore player ===========================
+
+function showCoachAddPlayer(
+    fromRoster = false,
+    rosterAgeGroup = null
+) {
+
+    const groups =
+        rosterAgeGroup
+        ? [rosterAgeGroup]
+        : (
+            selectedAgeGroups.length
+            ? selectedAgeGroups
+            : [currentAgeGroup]
+        );
+
+    const ageGroupSelector =
+        groups.length > 1
+        ? `
+
+            <div class="form-group">
+
+                <label
+                    class="title"
+                    for="targetAgeGroup">
+
+                    Add / Restore to:
+
+                </label>
+
+                <select
+                    id="targetAgeGroup"
+                    class="text-input">
+
+                    ${
+                        groups.map(
+                            (age, index) =>
+                                `<option
+                                    value="${age}"
+                                    ${index === 0 ? "selected" : ""}>
+                                    ${age}
+                                </option>`
+                        ).join("")
+                    }
+
+                </select>
+
+            </div>
+
+        `
+        : "";
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="
+                    ${
+                        fromRoster
+                        ? "showRoster()"
+                        : "showRegister()"
+                    }
+                ">
+
+                ← ${
+                    fromRoster
+                    ? "Roster"
+                    : "Register"
+                }
+            </button>
+
+            <h2>
+                Add Player
+            </h2>
+
+            <div class="subtitle">
+
+                Add a new player or search the archive
+                for a returning player.
+
+            </div>
+
+            ${ageGroupSelector}
+
+            <div class="info-box">
+
+                If this player has previously been archived,
+                search for them below and restore their
+                existing record instead of creating a duplicate.
+
+            </div>
+
+            <div class="form-group">
+
+                <label
+                    class="title">
+
+                    Player Name
+
+                </label>
+
+                <input
+                    id="coachPlayerName"
+                    class="text-input"
+                    maxlength="100"
+                    autocomplete="off"
+                    oninput="
+                        searchArchivedPlayers(
+                            ${fromRoster}
+                        )
+                    ">
+
+            </div>
+
+            <div id="archiveSearchResults"></div>
+
+            <br>
+
+            <button
+                class="green-button"
+                onclick="
+                    coachAddPlayer(
+                        ${fromRoster},
+                        '${rosterAgeGroup || ""}'
+                    )
+                ">
+
+                Add as New Player
+
+            </button>
+
+        </div>
+
+    `);
+
+    document.getElementById(
+        "coachPlayerName"
+    ).focus();
+
+}
+
+async function coachAddPlayer(
+    fromRoster = false,
+    rosterAgeGroup = null
+) {
+
+    const name =
+        document.getElementById(
+            "coachPlayerName"
+        ).value.trim();
+
+    if (!name) {
+
+        await appAlert(
+            "Please enter a player name.",
+            "Player name required",
+            "warning"
+        );
+
+        return;
+    }
+
+    const groups =
+        rosterAgeGroup
+        ? [rosterAgeGroup]
+        : (
+            selectedAgeGroups.length
+            ? selectedAgeGroups
+            : [currentAgeGroup]
+        );
+
+    if (!groups.length) {
+
+        await appAlert(
+            "Please select an age group first.",
+            "Age group required",
+            "warning"
+        );
+
+        return;
+    }
+
+    let targetAgeGroup =
+        groups[0];
+
+    if (groups.length > 1) {
+
+        const select =
+            document.getElementById(
+                "targetAgeGroup"
+            );
+
+        if (!select || !select.value) {
+
+            await appAlert(
+                "Please select an age group.",
+                "Age group required",
+                "warning"
+            );
+
+            return;
+        }
+
+        targetAgeGroup =
+            select.value;
+    }
+
+    /*
+        Find players with the same name
+        across all age groups.
+    */
+
+    const matchingPlayers = [];
+
+    ageGroups.forEach(
+        ageGroup => {
+
+            (players[ageGroup] || [])
+                .forEach(
+                    player => {
+
+                        if (
+                            player.name &&
+                            player.name
+                                .trim()
+                                .toLowerCase() ===
+                            name.toLowerCase()
+                        ) {
+
+                            matchingPlayers.push({
+
+                                player:
+                                    player,
+
+                                ageGroup:
+                                    ageGroup
+
+                            });
+                        }
+                    }
+                );
+        }
+    );
+
+    /*
+        Check for an archived match first.
+    */
+
+    const archivedMatch =
+        matchingPlayers.find(
+            match =>
+                match.player.archived === true
+        );
+
+    if (archivedMatch) {
+
+        const restore =
+            await appConfirm(
+                name +
+                " is already recorded as an archived player " +
+                "in " +
+                archivedMatch.ageGroup +
+                ".\n\n" +
+                "Would you like to restore their existing record " +
+                "to " +
+                targetAgeGroup +
+                "?",
+                "Archived player found",
+                "Restore player"
+            );
+
+        if (restore) {
+
+            await restoreArchivedPlayer(
+                archivedMatch.player.id,
+                fromRoster,
+                targetAgeGroup
+            );
+        }
+
+        return;
+    }
+
+    /*
+        Check for an active match.
+    */
+
+    const activeMatch =
+        matchingPlayers.find(
+            match =>
+                match.player.active === true &&
+                match.player.archived !== true
+        );
+
+    if (activeMatch) {
+
+        if (
+            activeMatch.ageGroup ===
+            targetAgeGroup
+        ) {
+
+            await appAlert(
+                name +
+                " is already registered in " +
+                targetAgeGroup +
+                ".\n\n" +
+                "A duplicate player has not been created.",
+                "Player already registered",
+                "warning"
+            );
+
+            return;
+        }
+
+        const differentPlayer =
+            await appConfirm(
+                name +
+                " is already registered in " +
+                activeMatch.ageGroup +
+                ".\n\n" +
+                "You are trying to add them to " +
+                targetAgeGroup +
+                ".\n\n" +
+                "If this is the same player, cancel.\n\n" +
+                "If this is a different player with the same name, " +
+                "press Confirm to continue.",
+                "Name match found",
+                "Add different player"
+            );
+
+        if (!differentPlayer) {
+
+            return;
+        }
+    }
+
+    /*
+        ROSTER:
+        Add the player without requiring today's
+        register and without marking them present.
+    */
+
+    if (fromRoster) {
+
+        const newPlayer =
+            await addPlayerToAgeGroup(
+                targetAgeGroup,
+                name,
+                false
+            );
+
+        if (!newPlayer) {
+            return;
+        }
+
+        showRoster();
+
+        return;
+    }
+
+    /*
+        REGISTER:
+        Today's register must be open.
+    */
+
+    const register =
+        getTodayRegister(
+            targetAgeGroup
+        );
+
+    if (
+        !register ||
+        register.submitted
+    ) {
+
+        await appAlert(
+            "Today's register is not open for " +
+            targetAgeGroup +
+            ".",
+            "Register not open",
+            "warning"
+        );
+
+        return;
+    }
+
+    /*
+        Create the new player.
+    */
+
+    const newPlayer =
+        await addPlayerToAgeGroup(
+            targetAgeGroup,
+            name,
+            false
+        );
+
+    if (!newPlayer) {
+        return;
+    }
+
+    /*
+        A player added during today's register
+        is automatically marked as attending.
+
+        Backend attendance will be wired during
+        the Attendance migration.
+    */
+
+    const addedToRegister =
+        await addPlayerToTodayAttendance(
+            targetAgeGroup,
+            newPlayer.id
+        );
+
+    if (!addedToRegister) {
+        return;
+    }
+
+    await setAttendance(
+        newPlayer.id,
+        true
+    );
+
+    showRegister();
+}
+
+function searchArchivedPlayers(
+    fromRoster = false
+) {
+
+    const input =
+        document.getElementById(
+            "coachPlayerName"
+        );
+
+    const results =
+        document.getElementById(
+            "archiveSearchResults"
+        );
+
+    if (!input || !results) {
+        return;
+    }
+
+    const search =
+        input.value.trim().toLowerCase();
+
+    if (!search) {
+
+        results.innerHTML = "";
+
+        return;
+
+    }
+
+    const matches = [];
+
+    /*
+        Search all age groups for archived players.
+    */
+
+    ageGroups.forEach(
+        ageGroup => {
+
+            (players[ageGroup] || [])
+                .forEach(
+                    player => {
+
+                        if (
+                            player.archived &&
+                            player.name &&
+                            player.name
+                                .toLowerCase()
+                                .includes(search)
+                        ) {
+
+                            matches.push({
+
+                                player:
+                                    player,
+
+                                previousAgeGroup:
+                                    ageGroup
+
+                            });
+
+                        }
+
+                    }
+                );
+
+        }
+    );
+
+    /*
+        No archived matches found.
+    */
+
+    if (matches.length === 0) {
+
+        results.innerHTML = `
+
+            <div class="info-box">
+
+                No archived player matches
+                <strong>
+                    "${escapeHTML(
+                        input.value.trim()
+                    )}"
+                </strong>.
+
+                <br><br>
+
+                You can add them as a new player if
+                this is a new registration.
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    /*
+        Display archived matches.
+    */
+
+    results.innerHTML = `
+
+        <div class="
+            info-box
+            success-box
+        ">
+
+            Archived player found.
+
+            <br>
+
+            ${
+                fromRoster
+                ? `
+                    Archived players can only be
+                    restored when taking the register.
+                `
+                : `
+                    Select the player below to restore
+                    their existing record.
+                `
+            }
+
+        </div>
+
+        ${
+            matches.map(
+                match => `
+
+                    <div class="list-row">
+
+                        <div class="list-title">
+
+                            ${escapeHTML(
+                                match.player.name
+                            )}
+
+                        </div>
+
+                        <div class="list-sub">
+
+                            Previously:
+                            ${escapeHTML(
+                                match.previousAgeGroup
+                            )}
+
+                            ${
+                                match.player.lastAttendanceDate
+                                ? `
+                                    · Last attended:
+                                    ${
+                                        getDisplayDate(
+                                            match.player.lastAttendanceDate
+                                        )
+                                    }
+                                `
+                                : ""
+                            }
+
+                        </div>
+
+                        <br>
+
+                        ${
+                            fromRoster
+                            ? `
+                                <div class="info-box">
+
+                                    This player is archived.
+
+                                    <br><br>
+
+                                    Restore them when taking
+                                    the register.
+
+                                </div>
+                            `
+                            : `
+                                <button
+                                    class="blue-button"
+                                    onclick='
+                                        restoreArchivedPlayer(
+                                            ${JSON.stringify(match.player.id)}
+                                        )
+                                    '>
+
+                                    Restore Player
+
+                                </button>
+
+                                ${
+                                    currentRole === "senior"
+                                    ? `
+                                        <button
+                                            class="red-button"
+                                            onclick='
+                                                permanentlyRemovePlayer(
+                                                    ${JSON.stringify(match.player.id)}
+                                                )
+                                            '>
+
+                                            Permanently Remove
+
+                                        </button>
+                                    `
+                                    : ""
+                                }
+                            `
+                        }
+
+                    </div>
+
+                `
+            ).join("")
+        }
+
+    `;
+
+}
+
+// Session History ===========================
+
+async function showSessionHistory() {
+
+    const groups =
+        selectedAgeGroups.length
+        ? selectedAgeGroups
+        : [currentAgeGroup];
+
+    if (
+        currentRole !== "coach" ||
+        !currentAccessPIN
+    ) {
+        await appAlert(
+            "Please log in as Coach again.",
+            "Login required",
+            "warning"
+        );
+        return;
+    }
+
+    const { data: registers, error } =
+        await supabaseClient.rpc(
+            "get_session_history",
+            {
+                requested_age_groups: groups,
+                supplied_code: currentAccessPIN,
+                supplied_role: "coach"
+            }
+        );
+
+    if (error) {
+
+        console.error(
+            "Supabase session history load failed:",
+            error
+        );
+
+        await appAlert(
+            "Unable to load session history. Please try again.",
+            "History unavailable",
+            "danger"
+        );
+
+        return;
+    }
+
+    if (!Array.isArray(registers)) {
+
+        console.error(
+            "Session history RPC returned invalid data."
+        );
+
+        await appAlert(
+            "Unable to load session history. Please try again.",
+            "History unavailable",
+            "danger"
+        );
+
+        return;
+    }
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showCoachDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Session History
+            </h2>
+
+            <div class="subtitle">
+                ${groups.join(" + ")}
+            </div>
+
+            ${
+                groups.map(ageGroup => {
+
+                    const groupRegisters =
+                        registers.filter(
+                            register =>
+                                register.age_group === ageGroup
+                        );
+
+                    if (groupRegisters.length === 0) {
+
+                        return `
+
+                            <div class="info-box">
+                                No session history available.
+                            </div>
+
+                        `;
+                    }
+
+                    return `
+
+                        <h3>${escapeHTML(ageGroup)}</h3>
+
+                        ${
+                            groupRegisters.map(register => {
+
+                                const activePlayers =
+                                    getActivePlayers(
+                                        register.age_group
+                                    );
+
+                                const activePlayerIDs =
+                                    new Set(
+                                        activePlayers.map(
+                                            player =>
+                                                String(player.id)
+                                        )
+                                    );
+
+                                const records =
+                                    register.attendance || [];
+
+                                const activeRecords =
+                                    records.filter(
+                                        record =>
+                                            activePlayerIDs.has(
+                                                String(record.player_id)
+                                            )
+                                    );
+
+                                const presentCount =
+                                    activeRecords.filter(
+                                        record =>
+                                            record.present === true
+                                    ).length;
+
+                                const totalCount =
+                                    activePlayers.length;
+
+                                let status = "In Progress";
+
+                                if (
+                                    register.closed_automatically ||
+                                    register.submitted
+                                ) {
+                                    status = "Closed";
+                                }
+
+                                const date =
+                                    new Date(
+                                        register.register_date +
+                                        "T00:00:00"
+                                    ).toLocaleDateString("en-GB");
+
+                                return `
+
+                                    <div class="promotion-row">
+
+                                        <span>
+
+                                            ${date}
+
+                                            <br>
+
+                                            ${presentCount}
+                                            of
+                                            ${totalCount}
+                                            present
+
+                                        </span>
+
+                                        <strong>
+                                            ${status}
+                                        </strong>
+
+                                    </div>
+
+                                `;
+
+                            }).join("")
+                        }
+
+                    `;
+
+                }).join("")
+            }
+
+        </div>
+
+    `);
+
+}
+
+// Senior Dashboard ===========================
+
+function getArchiveReviewCount() {
+
+    return getAllActivePlayers()
+        .filter(
+            player =>
+                isArchiveReviewDue(player)
+        )
+        .length;
+
+}
+
+
+function showSeniorDashboard() {
+
+    const active =
+        getAllActivePlayers();
+
+    const gms =
+        active.filter(
+            player => player.gms
+        ).length;
+
+    const archiveReviewCount =
+        getArchiveReviewCount();
+
+    renderShell(`
+
+        <div class="card">
+
+            <h2>
+                Admin Dashboard
+            </h2>
+
+            <div class="subtitle">
+                Season ${currentSeason}
+            </div>
+            ${currentPersonID && currentUserRoles.includes("coach") ? `
+                <button class="secondary-button" style="width:100%;margin-bottom:14px" onclick="showCoachAreaFromAdmin()">Coach Area</button>
+            ` : ""}
+
+            <div class="stats">
+
+                <div class="stat">
+
+                    <div class="stat-number">
+                        ${active.length}
+                    </div>
+
+                    <div class="stat-label">
+                        Active Players
+                    </div>
+
+                </div>
+
+                <div class="stat">
+
+                    <div class="stat-number">
+                        ${gms}
+                    </div>
+
+                    <div class="stat-label">
+                        GMS Confirmed
+                    </div>
+
+                </div>
+
+                <div class="stat">
+
+                    <div class="stat-number">
+                        ${active.length - gms}
+                    </div>
+
+                    <div class="stat-label">
+                        GMS Outstanding
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div id="seniorUpcomingSummary" class="coach-upcoming-summary">
+                <div class="coach-upcoming-loading">Loading upcoming events…</div>
+            </div>
+
+            ${
+                archiveReviewCount > 0
+                ? `
+                    <div class="
+                        info-box
+                        archive-due
+                    ">
+
+                        <strong>
+                            ${archiveReviewCount}
+                        </strong>
+
+                        player${
+                            archiveReviewCount === 1
+                            ? ""
+                            : "s"
+                        }
+
+                        require an archive review
+                        because they have not attended
+                        for 12 weeks or more.
+
+                    </div>
+                `
+                : ""
+            }
+
+            <div class="menu-grid">
+
+                <button
+                    class="menu-button"
+                    onclick="showSeniorAgeGroups()">
+                    All Age<br>Groups
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showPlayerManagement()">
+                    Player<br>Management
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showArchiveReview()">
+                    Archive<br>Review
+                    ${
+                        archiveReviewCount > 0
+                        ? `<br>(${archiveReviewCount})`
+                        : ""
+                    }
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showArchiveList()">
+                    Archived<br>Players
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showUserManagement()">
+                    User<br>Management
+                </button>
+
+                <button
+                    class="menu-button"
+                    onclick="showPINManagement()">
+                    Manage<br>PINs
+                </button>
+
+
+
+                <button
+                    class="menu-button blue"
+                    onclick="showNewSeason()">
+                    New<br>Season
+                </button>
+
+                <button
+                    class="menu-button blue"
+                    onclick="showSeasonPlanner()">
+                    Season<br>Planner
+                </button>
+ 
+            </div>
+
+            <div class="system-admin-footer">
+                <button class="system-admin-small-button" onclick="showSystemAdminLogin()">
+                    System Admin
+                </button>
+            </div>
+
+        </div>
+
+    `);
+
+    loadDashboardUpcoming("seniorUpcomingSummary", "senior", []);
+
+}
+
+
+// Senior all age groups ===========================
+
+function showSeniorAgeGroups() {
+
+    const activeAgeGroups =
+        getActiveAgeGroups();
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showSeniorDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                All Age Groups
+            </h2>
+
+            <div class="subtitle">
+
+                All active players grouped by age group.
+
+            </div>
+
+            ${
+                activeAgeGroups.map(
+                    ageGroup => {
+
+                    const active =
+                        getActivePlayers(
+                            ageGroup
+                        );
+
+                    if (
+                        active.length === 0
+                    ) {
+                        return "";
+                    }
+
+                    const needsGMS =
+                        ageGroupNeedsGMSConfirmation(
+                            ageGroup
+                        );
+
+                    return `
+
+                        <div class="age-section">
+
+                            <div class="
+                                age-section-title
+                                ${
+                                    needsGMS
+                                    ? "age-section-warning"
+                                    : ""
+                                }
+                            ">
+
+                                <span>
+                                    ${ageGroup}
+                                </span>
+
+                                <span
+                                    class="age-section-count">
+
+                                    ${active.length}
+                                    player${
+                                        active.length === 1
+                                        ? ""
+                                        : "s"
+                                    }
+
+                                </span>
+
+                            </div>
+
+                            ${
+                                active.map(
+                                    player => `
+
+                                    <div class="player-row">
+
+                                        <div
+                                            class="player-info">
+
+                                            <div
+                                                class="player-name">
+
+                                                ${escapeHTML(
+                                                    player.name
+                                                )}
+
+                                            </div>
+
+                                        </div>
+
+                                        <span>
+
+                                            ${
+                                                player.gms
+                                                ? "GMS ✓"
+                                                : "GMS outstanding"
+                                            }
+
+                                        </span>
+
+                                    </div>
+
+                                `
+                                ).join("")
+                            }
+
+                        </div>
+
+                    `;
+
+                }).join("")
+            }
+
+        </div>
+
+    `);
+
+}
+
+// Archive review ===========================
+
+function showArchiveReview() {
+
+    const reviewPlayers =
+        getAllActivePlayers()
+            .filter(
+                player =>
+                    isArchiveReviewDue(
+                        player
+                    )
+            );
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showSeniorDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Archive Review
+            </h2>
+
+            <div class="subtitle">
+
+                Review players who have not attended
+                for 12 weeks or more.
+
+            </div>
+
+            <div class="
+                info-box
+                warning-box
+            ">
+
+                <strong>
+                    Review only — nothing is automatic.
+                </strong>
+
+                <br><br>
+
+                A player is only archived when an Admin
+                decides that they should no longer
+                remain on the active register.
+
+                <br><br>
+
+                Holiday, injury or other known absences
+                can simply be left active.
+
+            </div>
+
+            ${
+                reviewPlayers.length === 0
+
+                ? `
+
+                    <div class="empty">
+
+                        No players currently require
+                        an archive review.
+
+                    </div>
+
+                `
+
+                : getActiveAgeGroups().map(
+                    ageGroup => {
+
+                    const groupPlayers =
+                        reviewPlayers.filter(
+                            player =>
+                                player.ageGroup ===
+                                ageGroup
+                        );
+
+                    if (
+                        groupPlayers.length === 0
+                    ) {
+                        return "";
+                    }
+
+                    return `
+
+                        <div class="age-section">
+
+                            <div class="
+                                age-section-title
+                            ">
+
+                                <span>
+                                    ${ageGroup}
+                                </span>
+
+                                <span class="age-section-count">
+                                    ${groupPlayers.length}
+                                </span>
+
+                            </div>
+
+                            ${
+                                groupPlayers.map(
+                                    player => {
+
+                                    const days =
+                                        getDaysSinceDate(
+                                            player.lastAttendanceDate
+                                        );
+
+                                    const weeks =
+                                        getWeeksSinceDate(
+                                            player.lastAttendanceDate
+                                        );
+
+                                    return `
+
+                                        <div class="player-row">
+
+                                            <div class="player-info">
+
+                                                <div class="player-name">
+
+                                                    ${escapeHTML(
+                                                        player.name
+                                                    )}
+
+                                                </div>
+
+                                                <div class="player-small">
+
+                                                    Last attended:
+                                                    ${
+                                                        getDisplayDate(
+                                                            player.lastAttendanceDate
+                                                        )
+                                                    }
+
+                                                    ·
+                                                    ${weeks}
+                                                    week${
+                                                        weeks === 1
+                                                        ? ""
+                                                        : "s"
+                                                    }
+
+                                                    ago
+
+                                                    ·
+                                                    ${days}
+                                                    days
+
+                                                </div>
+
+                                            </div>
+
+                                            <button
+                                                class="red-button small-button"
+                                                onclick='
+                                                    archivePlayer(
+                                                        ${JSON.stringify(player.id)},
+                                                        "archiveReview"
+                                                    )
+                                                '>
+
+                                                Archive
+
+                                            </button>
+
+                                        </div>
+
+                                    `;
+
+                                }).join("")
+                            }
+
+                        </div>
+
+                    `;
+
+                }).join("")
+            }
+
+        </div>
+
+    `);
+
+}
+
+// Archived player list ===========================
+
+function getAllArchivedPlayers() {
+
+    let result = [];
+
+    ageGroups.forEach(ageGroup => {
+
+        (players[ageGroup] || []).forEach(player => {
+
+            const isAnonymised =
+                /^Anonymous-\d+$/i.test(
+                    String(player.name || "").trim()
+                );
+
+            if (player.archived && !isAnonymised) {
+                result.push(player);
+            }
+
+        });
+
+    });
+
+    return result;
+
+}
+
+function showArchiveList() {
+
+    const archived =
+        getAllArchivedPlayers();
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showSeniorDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Archived Players
+            </h2>
+
+            <div class="subtitle">
+
+                Archived players remain available for
+                historical records and restoration.
+
+            </div>
+
+            ${
+                archived.length === 0
+
+                ? `
+
+                    <div class="empty">
+
+                        No players are currently archived.
+
+                    </div>
+
+                `
+
+                : getActiveAgeGroups().map(
+                    ageGroup => {
+
+                    const groupPlayers =
+                        archived.filter(
+                            player =>
+                                player.ageGroup ===
+                                ageGroup
+                        );
+
+                    if (
+                        groupPlayers.length === 0
+                    ) {
+                        return "";
+                    }
+
+                    return `
+
+                        <div class="age-section">
+
+                            <div class="
+                                age-section-title
+                                archive-age-title
+                            ">
+
+                                <span>
+                                    ${ageGroup}
+                                </span>
+
+                                <span class="age-section-count">
+                                    ${groupPlayers.length}
+                                </span>
+
+                            </div>
+
+                            ${
+                                groupPlayers.map(
+                                    player => `
+
+                                    <div class="list-row">
+
+                                        <div class="list-title">
+
+                                            ${escapeHTML(
+                                                player.name
+                                            )}
+
+                                        </div>
+
+                                        <div class="list-sub">
+
+                                            Last attended:
+
+                                            ${
+                                                player.lastAttendanceDate
+                                                ? getDisplayDate(
+                                                    player.lastAttendanceDate
+                                                )
+                                                : "No recorded attendance"
+                                            }
+
+                                        </div>
+
+                                        <br>
+
+                                        <button
+                                            class="green-button small-button"
+                                            onclick='
+                                                showSeniorRestorePlayer(
+                                                    ${JSON.stringify(player.id)}
+                                                )
+                                            '>
+
+                                            Restore
+
+                                        </button>
+
+                                        <button
+                                            class="red-button small-button"
+                                            onclick='
+                                                permanentlyRemovePlayer(
+                                                    ${JSON.stringify(player.id)}
+                                                )
+                                            '>
+
+                                            Permanently Remove
+
+                                        </button>
+
+                                    </div>
+
+                                `
+                                ).join("")
+                            }
+
+                        </div>
+
+                    `;
+
+                }).join("")
+            }
+
+            <br>
+
+            <div class="info-box">
+
+                Admin can restore archived players
+                and select their current age group.
+
+                <br><br>
+
+                Historical attendance
+                will be retained.
+
+            </div>
+
+        </div>
+
+    `);
+
+}
+
+function showSeniorRestorePlayer(
+    playerID
+) {
+
+    const player =
+        findPlayerByID(
+            playerID
+        );
+
+    if (!player) {
+
+        appAlert(
+            "Player not found: " + playerID,
+            "Player not found",
+            "danger"
+        );
+
+        return;
+    }
+
+    const availableGroups =
+        ageGroups;
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showArchiveList()">
+
+                ← Archived Players
+
+            </button>
+
+            <h2>
+                Restore Player
+            </h2>
+
+            <div class="subtitle">
+
+                ${escapeHTML(
+                    player.name
+                )}
+
+            </div>
+
+            <div class="info-box">
+
+                Previous age group:
+                <strong>
+                    ${escapeHTML(
+                        player.ageGroup
+                    )}
+                </strong>
+
+                <br><br>
+
+                Last attended:
+
+                <strong>
+
+                    ${
+                        player.lastAttendanceDate
+                        ? getDisplayDate(
+                            player.lastAttendanceDate
+                        )
+                        : "No recorded attendance"
+                    }
+
+                </strong>
+
+                <br><br>
+
+                Their historical
+                attendance will be retained.
+
+            </div>
+
+            <div class="form-group">
+
+                <label
+                    class="title"
+                    for="seniorRestoreAgeGroup">
+
+                    Restore to:
+
+                </label>
+
+                <select
+                    id="seniorRestoreAgeGroup"
+                    class="text-input">
+
+                    ${
+                        availableGroups.map(
+                            ageGroup => `
+
+                                <option
+                                    value="${ageGroup}"
+                                    ${
+                                        ageGroup ===
+                                        player.ageGroup
+                                        ? "selected"
+                                        : ""
+                                    }>
+
+                                    ${ageGroup}
+
+                                </option>
+
+                            `
+                        ).join("")
+                    }
+
+                </select>
+
+            </div>
+
+            <div class="info-box">
+
+                Restoring the player will make them
+                active again.
+
+                <br><br>
+
+                They will <strong>not</strong> be marked
+                as attending today.
+
+            </div>
+
+            <button
+                class="green-button"
+                onclick='
+                    seniorRestorePlayer(
+                        ${JSON.stringify(player.id)}
+                    )
+                '>
+
+                Restore Player
+
+            </button>
+
+        </div>
+
+    `);
+
+}
+
+/* =========================================================
+   PLAYER MANAGEMENT
+   ========================================================= */
+
+function showPlayerManagement(
+    selectedAge = null
+) {
+
+    if (selectedAge) {
+        currentAgeGroup =
+            selectedAge;
+    } else {
+        currentAgeGroup = null;
+    }
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showSeniorDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Player Management
+            </h2>
+
+            <div class="subtitle">
+
+                Add, archive and manage GMS status.
+
+                <br>
+
+                Yellow indicates that one or more
+                players require GMS confirmation.
+
+            </div>
+
+            <div class="age-grid">
+
+                ${
+                    getActiveAgeGroups().map(
+                        age => {
+
+                        const needsGMS =
+                            ageGroupNeedsGMSConfirmation(
+                                age
+                            );
+
+                        const gmsCount =
+                            getActivePlayers(
+                                age
+                            ).filter(
+                                player =>
+                                    player.gms !== true
+                            ).length;
+
+                        return `
+
+                            <button
+                                class="
+                                    age-button
+                                    ${
+                                        needsGMS
+                                        ? "gms-needs-confirmation"
+                                        : ""
+                                    }
+                                    ${
+                                        currentAgeGroup === age
+                                        ? "selected-age"
+                                        : ""
+                                    }
+                                "
+                                onclick="
+                                    showPlayerManagement(
+                                        '${age}'
+                                    )
+                                ">
+
+                                ${age}${
+                                    gmsCount > 0
+                                    ? ` <span style="font-size:12px; font-weight:600; opacity:0.7;">(${gmsCount})</span>`
+                                    : ""
+                                }
+
+                            </button>
+
+                        `;
+
+                    }).join("")
+                }
+
+            </div>
+
+        </div>
+
+        ${
+            currentAgeGroup
+            ? renderPlayerManagementList(
+                currentAgeGroup
+            )
+            : ""
+        }
+
+    `);
+
+}
+
+function renderPlayerManagementList(ageGroup) {
+
+    const active =
+        getActivePlayers(
+            ageGroup
+        );
+
+    return `
+
+        <div class="card">
+
+            <h3>
+                ${escapeHTML(ageGroup)}
+            </h3>
+
+            ${
+                active.length === 0
+
+                ? `
+
+                    <div class="empty">
+                        No active players.
+                    </div>
+
+                `
+
+                : active.map(
+                    player => `
+
+                    <div class="player-row player-management-row">
+
+                        <div class="player-info">
+
+                            <div class="player-name">
+
+                                ${escapeHTML(
+                                    player.name
+                                )}
+
+                            </div>
+
+                            ${
+                                player.coachGmsSuggestion && !player.gms
+                                ? `
+                                    <div class="player-small">
+                                        Coach has suggested GMS
+                                    </div>
+                                `
+                                : ""
+                            }
+
+                            <div class="player-small">
+
+                                Last attended:
+                                ${
+                                    player.lastAttendanceDate
+                                    ? new Date(
+                                        player.lastAttendanceDate
+                                    ).toLocaleDateString(
+                                        "en-GB"
+                                    )
+                                    : "No attendance recorded"
+                                }
+
+                            </div>
+
+                        </div>
+
+                        <div class="row-actions">
+
+                            <label class="
+                                toggle
+                                gms-toggle
+                                ${
+                                    player.gms
+                                    ? "confirmed"
+                                    : "not-confirmed"
+                                }
+                            ">
+
+                                <input
+                                    type="checkbox"
+                                    ${
+                                        player.gms
+                                        ? "checked"
+                                        : ""
+                                    }
+                                    onchange='
+                                        setGMS(
+                                            ${JSON.stringify(player.id)},
+                                            this.checked
+                                        )
+                                    '>
+
+                                <span class="toggle-knob"></span>
+                                <span class="toggle-label"></span>
+
+                            </label>
+
+                            <button
+                                class="secondary-button small-button"
+                                onclick='
+                                    renamePlayer(
+                                        ${JSON.stringify(player.id)}
+                                    )
+                                '>
+
+                                Edit Name
+
+                            </button>
+
+                            <button
+                                class="secondary-button small-button"
+                                onclick='
+                                    showMovePlayer(
+                                        ${JSON.stringify(player.id)}
+                                    )
+                                '>
+
+                                Move
+
+                            </button>
+
+                            <button
+                                class="red-button small-button"
+                                onclick='
+                                    archivePlayer(
+                                        ${JSON.stringify(player.id)},
+                                        "playerManagement"
+                                    )
+                                '>
+
+                                Archive
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                `
+                ).join("")
+            }
+
+            <br>
+
+            <button
+                class="green-button"
+                onclick="
+                    showSeniorAddPlayer(
+                        '${ageGroup}'
+                    )
+                ">
+
+                Add Player
+
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+function showMovePlayer(
+    playerID
+) {
+
+    const player =
+        findPlayerByID(
+            playerID
+        );
+
+    if (!player) {
+        return;
+    }
+
+    const availableGroups =
+        ageGroups.filter(
+            ageGroup =>
+                ageGroup !== player.ageGroup
+        );
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="
+                    showPlayerManagement(
+                        '${player.ageGroup}'
+                    )
+                ">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Move Player
+            </h2>
+
+            <div class="subtitle">
+
+                ${escapeHTML(
+                    player.name
+                )}
+
+            </div>
+
+            <div class="info-box">
+
+                Current age group:
+                <strong>
+                    ${player.ageGroup}
+                </strong>
+
+                <br><br>
+
+                Select the new age group for this player.
+
+                Their attendance history
+                will be retained.
+
+            </div>
+
+            <div class="form-group">
+
+                <label
+                    class="title"
+                    for="moveTargetAgeGroup">
+
+                    Move to:
+
+                </label>
+
+                <select
+                    id="moveTargetAgeGroup"
+                    class="text-input">
+
+                    ${
+                        availableGroups.map(
+                            ageGroup => `
+
+                                <option
+                                    value="${ageGroup}">
+
+                                    ${ageGroup}
+
+                                </option>
+
+                            `
+                        ).join("")
+                    }
+
+                </select>
+
+            </div>
+
+            <button
+                class="green-button"
+                onclick='
+                    movePlayer(
+                        ${JSON.stringify(player.id)}
+                    )
+                '>
+
+                Move Player
+
+            </button>
+
+        </div>
+
+    `);
+
+}
+
+/* =========================================================
+   SENIOR ADD PLAYER
+   ========================================================= */
+
+function showSeniorAddPlayer(
+    ageGroup
+) {
+
+    currentAgeGroup =
+        ageGroup;
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="
+                    showPlayerManagement(
+                        '${ageGroup}'
+                    )
+                ">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Add Player
+            </h2>
+
+            <div class="subtitle">
+                ${ageGroup}
+            </div>
+
+            <div class="form-group">
+
+                <label class="title">
+                    Player Name
+                </label>
+
+                <input
+                    id="seniorPlayerName"
+                    class="text-input"
+                    maxlength="100"
+                    autocomplete="off">
+
+            </div>
+
+            <div class="form-group">
+
+                <label class="title">
+                    GMS Status
+                </label>
+
+                <label
+                    id="newGMSToggle"
+                    class="toggle gms-toggle not-confirmed">
+
+                    <input
+                        id="newGMS"
+                        type="checkbox"
+                        onchange="
+                            updateNewGMSToggle()
+                        ">
+
+                    <span class="toggle-knob"></span>
+                    <span class="toggle-label"></span>
+
+                </label>
+
+            </div>
+
+            <button
+                class="green-button"
+                onclick="
+                    seniorAddPlayer(
+                        '${ageGroup}'
+                    )
+                ">
+
+                Add Player
+
+            </button>
+
+        </div>
+
+    `);
+
+    document.getElementById(
+        "seniorPlayerName"
+    ).focus();
+
+}
+
+function updateNewGMSToggle() {
+
+    const input =
+        document.getElementById(
+            "newGMS"
+        );
+
+    const toggle =
+        document.getElementById(
+            "newGMSToggle"
+        );
+
+    if (input.checked) {
+
+        toggle.classList.remove(
+            "not-confirmed"
+        );
+
+        toggle.classList.add(
+            "confirmed"
+        );
+
+    } else {
+
+        toggle.classList.remove(
+            "confirmed"
+        );
+
+        toggle.classList.add(
+            "not-confirmed"
+        );
+
+    }
+
+}
+
+async function seniorAddPlayer(
+    ageGroup
+) {
+
+    const name =
+        document.getElementById(
+            "seniorPlayerName"
+        ).value.trim();
+
+    const gms =
+        document.getElementById(
+            "newGMS"
+        ).checked;
+
+    if (!name) {
+
+        await appAlert(
+            "Please enter a player name.",
+            "Player name required",
+            "warning"
+        );
+
+        return;
+    }
+
+    const newPlayer =
+        await addPlayerToAgeGroup(
+            ageGroup,
+            name,
+            gms
+        );
+
+    if (!newPlayer) {
+
+        return;
+    }
+
+    showPlayerManagement(
+        ageGroup
+    );
+
+}
+
+/* =========================================================
+   NEW SEASON
+   ========================================================= */
+
+/* =========================================================
+   NEW SEASON
+   ========================================================= */
+
+async function showNewSeason() {
+
+    const previewResult = await supabaseClient.rpc(
+        "get_season_rollover_preview_secure",
+        {
+            supplied_code: currentSeniorPIN,
+            supplied_installation_id: getInstallationID()
+        }
+    );
+
+    if (previewResult.error || !previewResult.data) {
+        console.error("Unable to load season rollover preview:", previewResult.error);
+        await appAlert(
+            "Unable to load the current coach assignments for review. No changes have been made.",
+            "Unable to load rollover review",
+            "danger"
+        );
+        return;
+    }
+
+    window.seasonRolloverPreview = previewResult.data;
+
+    const preview = window.seasonRolloverPreview;
+    const nextSeason = getNextSeason(preview.current_season || currentSeason);
+    const groups = Array.isArray(preview.age_groups) ? preview.age_groups : [];
+    const coaches = Array.isArray(preview.coaches) ? preview.coaches : [];
+
+    if (!preview.current_season || preview.current_season !== currentSeason) {
+        await appAlert(
+            "The current season shown by the app does not match Supabase. Refresh the app before starting a new season.",
+            "Season information changed",
+            "danger"
+        );
+        return;
+    }
+
+    const groupById = new Map(groups.map(group => [Number(group.id), group]));
+
+    const coachCards = coaches.map(coach => {
+        const currentIds = (coach.current_age_group_ids || []).map(Number);
+        const proposedIds = [];
+
+        currentIds.forEach(groupId => {
+            const currentGroup = groupById.get(groupId);
+            const nextGroup = currentGroup && groupById.get(Number(currentGroup.next_age_group_id));
+
+            // If the configured next group is inactive, keep the current assignment
+            // as the safe default and explicitly flag it for Senior review.
+            if (nextGroup) {
+                proposedIds.push(Number(nextGroup.id));
+            } else {
+                proposedIds.push(groupId);
+            }
+        });
+
+        const uniqueProposed = [...new Set(proposedIds)];
+        const currentNames = currentIds.map(id => {
+            const group = groupById.get(id);
+            return group ? group.name : "Unknown group";
+        });
+        const requiresReview = currentIds.some(id => {
+            const group = groupById.get(id);
+            return !group || !groupById.has(Number(group.next_age_group_id));
+        });
+
+        return {
+            ...coach,
+            currentIds,
+            proposedIds: uniqueProposed,
+            currentNames,
+            requiresReview
+        };
+    });
+
+    const playerProgression = ageGroups.map(ageGroup => {
+        const count = getActivePlayers(ageGroup).length;
+        if (!count) return "";
+
+        const next = getNextAgeGroup(ageGroup);
+        const nextGroup = ageGroupData.find(group => group.age_group === next);
+        const nextActive = Boolean(nextGroup && nextGroup.active);
+
+        return `
+            <div class="promotion-row ${next && !nextActive ? "warning-box" : ""}">
+                <span>
+                    ${escapeHTML(ageGroup)}
+                    →
+                    ${nextActive
+                        ? escapeHTML(next)
+                        : "Leaving Active Register"}
+                </span>
+                <strong>${count}</strong>
+            </div>
+        `;
+    }).join("");
+
+    const coachReview = coachCards.length
+        ? coachCards.map((coach, index) => `
+            <div class="list-row season-coach-card"
+                 data-person-id="${escapeHTML(coach.person_id)}">
+                <div class="list-title">${escapeHTML(coach.name)}</div>
+                <div class="list-sub">
+                    Current assignments: ${escapeHTML(coach.currentNames.join(", ") || "None")}
+                </div>
+                ${coach.requiresReview ? `
+                    <div class="info-box warning-box">
+                        One or more current groups have no active configured next group.
+                        The current assignment has been retained as the suggested option.
+                        Please review it below.
+                    </div>
+                ` : ""}
+                <div class="list-sub"><strong>New season assignments</strong></div>
+                <div class="age-grid">
+                    ${groups.map(group => `
+                        <label class="age-option">
+                            <input
+                                type="checkbox"
+                                class="season-coach-group"
+                                data-age-group-id="${Number(group.id)}"
+                                ${coach.proposedIds.includes(Number(group.id)) ? "checked" : ""}>
+                            ${escapeHTML(group.display_name || group.name)}
+                        </label>
+                    `).join("")}
+                </div>
+            </div>
+        `).join("")
+        : `<div class="info-box">There are no active coaches with the Coach role to review.</div>`;
+
+    renderShell(`
+        <div class="card">
+            <button class="back-button" onclick="showSeniorDashboard()">← Back</button>
+
+            <h2>New Season</h2>
+            <div class="subtitle">Review player progression and coach assignments before starting the new season.</div>
+
+            <div class="info-box warning-box">
+                <strong>Current season:</strong> ${escapeHTML(preview.current_season)}
+                <br><br>
+                <strong>New season:</strong> ${escapeHTML(nextSeason)}
+            </div>
+
+            <h3>Player Progression</h3>
+            ${playerProgression || '<div class="info-box">No active players require progression.</div>'}
+
+            <div class="info-box danger-box">
+                <strong>Player records and history are retained.</strong>
+                <br><br>
+                Players move to their configured next age group only where that group is active.
+                Players without an active next group leave the active register; they are not deleted.
+            </div>
+
+            <h3>Coach Assignments</h3>
+            <div class="subtitle">
+                Each current assignment is proposed to move to its configured next active age group.
+                Review each coach individually. Select or clear groups to set the final assignments.
+            </div>
+
+            ${coachReview}
+
+            <div class="info-box">
+                Coach roles and Admin roles are not changed. Each active Coach must finish with at least one active age-group assignment.
+                Duplicate destination groups are automatically combined.
+            </div>
+
+            <button class="blue-button" onclick="confirmNewSeason()">
+                Review and Confirm New Season
+            </button>
+        </div>
+    `);
+}
+
+async function confirmNewSeason() {
+
+    const preview = window.seasonRolloverPreview;
+    if (!preview || preview.current_season !== currentSeason) {
+        await appAlert(
+            "The rollover review is no longer available. Please reopen New Season.",
+            "Review expired",
+            "warning"
+        );
+        return;
+    }
+
+    const cards = [...document.querySelectorAll(".season-coach-card")];
+    const finalAssignments = [];
+
+    for (const card of cards) {
+        const personId = card.dataset.personId;
+        const selectedIds = [...card.querySelectorAll(".season-coach-group:checked")]
+            .map(input => Number(input.dataset.ageGroupId))
+            .filter(Number.isInteger)
+            .sort((a, b) => a - b);
+
+        if (!selectedIds.length) {
+            await appAlert(
+                "Every active coach must have at least one age group. Please review " +
+                (card.querySelector(".list-title")?.textContent || "the coach") + ".",
+                "Coach assignment required",
+                "warning"
+            );
+            return;
+        }
+
+        finalAssignments.push({
+            person_id: personId,
+            age_group_ids: [...new Set(selectedIds)]
+        });
+    }
+
+    const expected = (preview.coaches || [])
+        .map(coach => ({
+            person_id: coach.person_id,
+            age_group_ids: [...(coach.current_age_group_ids || [])].map(Number).sort((a, b) => a - b)
+        }))
+        .sort((a, b) => a.person_id.localeCompare(b.person_id));
+
+    finalAssignments.sort((a, b) => a.person_id.localeCompare(b.person_id));
+
+    const nextSeason = getNextSeason(preview.current_season);
+    const coachChanges = finalAssignments.filter(finalCoach => {
+        const oldCoach = expected.find(item => item.person_id === finalCoach.person_id);
+        return !oldCoach || JSON.stringify(oldCoach.age_group_ids) !== JSON.stringify(finalCoach.age_group_ids);
+    }).length;
+
+    const confirmed = await appConfirm(
+        "Start season " + nextSeason + "?\n\n" +
+        "Player progression will be applied.\n" +
+        "Coach assignments for " + finalAssignments.length + " active coach(es) will be saved, including " +
+        coachChanges + " changed assignment set(s).\n\n" +
+        "All changes are applied together. If validation fails, nothing will be changed.",
+        "Confirm new season",
+        "Start new season"
+    );
+
+    if (!confirmed) return;
+
+    await performNewSeason(nextSeason, {
+        expected,
+        final: finalAssignments
+    }, preview.current_season);
+}
+
+/* =========================================================
+   PIN MANAGEMENT
+   ========================================================= */
+
+function showPINManagement() {
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showSeniorDashboard()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                Manage PINs
+            </h2>
+
+            <div class="subtitle">
+
+                Admins can change both access PINs.
+
+            </div>
+
+            <div class="list-row">
+
+                <div class="list-title">
+                    Coach PIN
+                </div>
+
+                <div class="list-sub">
+                    Used by coaches to access registers.
+                </div>
+
+                <br>
+
+                <button
+                    class="secondary-button"
+                    onclick="showChangePIN('coach')">
+
+                    Change Coach PIN
+
+                </button>
+
+            </div>
+
+            <div class="list-row">
+
+                <div class="list-title">
+                    Admin PIN
+                </div>
+
+                <div class="list-sub">
+                    Used for full club access.
+                </div>
+
+                <br>
+
+                <button
+                    class="secondary-button"
+                    onclick="showChangePIN('senior')">
+
+                    Change Admin PIN
+
+                </button>
+
+            </div>
+
+        </div>
+
+    `);
+
+}
+
+function showChangePIN(
+    type
+) {
+
+    const title =
+        type === "coach"
+        ? "Change Coach PIN"
+        : "Change Admin PIN";
+
+    renderShell(`
+
+        <div class="card">
+
+            <button
+                class="back-button"
+                onclick="showPINManagement()">
+
+                ← Back
+
+            </button>
+
+            <h2>
+                ${title}
+            </h2>
+
+            <div class="form-group">
+
+                <label class="title">
+                    Current Admin PIN
+                </label>
+
+                <input
+                    id="currentSeniorPIN"
+                    class="pin-input"
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="8">
+
+            </div>
+
+            <div class="form-group">
+
+                <label class="title">
+                    New PIN
+                </label>
+
+                <input
+                    id="newPIN"
+                    class="pin-input"
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="8">
+
+            </div>
+
+            <div class="form-group">
+
+                <label class="title">
+                    Confirm New PIN
+                </label>
+
+                <input
+                    id="confirmPIN"
+                    class="pin-input"
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="8">
+
+            </div>
+
+            <div id="changePINError" class="error"></div>
+
+            <button
+                class="green-button"
+                onclick="changePIN('${type}')">
+
+                Save New PIN
+
+            </button>
+
+        </div>
+
+    `);
+
+}
+
+async function changePIN(
+    type
+) {
+
+    const currentSeniorPIN =
+        document.getElementById(
+            "currentSeniorPIN"
+        ).value;
+
+    const newPIN =
+        document.getElementById(
+            "newPIN"
+        ).value;
+
+    const confirmPIN =
+        document.getElementById(
+            "confirmPIN"
+        ).value;
+
+    const error =
+        document.getElementById(
+            "changePINError"
+        );
+
+    error.textContent = "";
+
+    if (
+        !currentSeniorPIN ||
+        !newPIN ||
+        !confirmPIN
+    ) {
+
+        error.textContent =
+            "Please complete all PIN fields.";
+
+        return;
+
+    }
+
+    if (
+        newPIN !== confirmPIN
+    ) {
+
+        error.textContent =
+            "The PINs do not match.";
+
+        return;
+
+    }
+
+    if (
+        !/^\d+$/.test(currentSeniorPIN) ||
+        !/^\d+$/.test(newPIN)
+    ) {
+
+        error.textContent =
+            "PINs must contain numbers only.";
+
+        return;
+
+    }
+
+    if (
+        newPIN.length < 4 ||
+        newPIN.length > 8
+    ) {
+
+        error.textContent =
+            "PIN must be between 4 and 8 digits.";
+
+        return;
+
+    }
+
+    const {
+        data,
+        error: supabaseError
+    } =
+        await supabaseClient.rpc(
+            "change_access_code",
+            {
+                current_senior_code:
+                    currentSeniorPIN,
+
+                code_type:
+                    type,
+
+                new_code:
+                    newPIN
+            }
+        );
+
+    if (
+        supabaseError
+    ) {
+
+        console.error(
+            "PIN change error:",
+            supabaseError
+        );
+
+        error.textContent =
+            "Unable to change the PIN.";
+
+        return;
+
+    }
+
+    if (
+        data !== true
+    ) {
+
+        error.textContent =
+            "The current Admin PIN is incorrect.";
+
+        return;
+
+    }
+
+    await appAlert(
+        type === "coach"
+            ? "Coach PIN changed successfully."
+            : "Admin PIN changed successfully.",
+        "PIN changed",
+        "success"
+    );
+
+    showPINManagement();
+
+}
+
+/* =========================================================
+   PWA INSTALLATION ID
+   ========================================================= */
+
+function getInstallationID() {
+
+    let installationID =
+        localStorage.getItem(
+            "installationID"
+        );
+
+    if (!installationID) {
+
+        installationID =
+            "INSTALL-" +
+            crypto.randomUUID();
+
+        localStorage.setItem(
+            "installationID",
+            installationID
+        );
+
+    }
+
+    setInstallationRequestHeader(installationID);
+
+    return installationID;
+
+}
+
+/* =========================================================
+   CHECK PWA ACCESS
+   ========================================================= */
+
+async function checkInstallationAccess() {
+
+    const installationID = getInstallationID();
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "verify_installation_access",
+            {
+                requested_installation_id:
+                    installationID
+            }
+        );
+
+    if (error) {
+
+        console.error(
+            "Installation access check failed:",
+            error
+        );
+
+        // An RPC error does not prove access has been revoked.
+        return null;
+    }
+
+    // A user ID means access is authorised.
+    // Null means the installation or user is inactive.
+    return typeof data === "string" && data.length > 0;
+}
+
+/* =========================================================
+   AUTOMATIC INSTALLATION ACCESS MONITOR
+   ========================================================= */
+
+let installationAccessInterval = null;
+let installationAccessCheckRunning = false;
+
+function startInstallationAccessMonitoring() {
+    if (installationAccessInterval !== null) {
+        return;
+    }
+
+    installationAccessInterval = setInterval(async () => {
+        // Avoid overlapping checks.
+        if (installationAccessCheckRunning) {
+            return;
+        }
+
+        // Only revoke an active Coach or Senior session.
+        if (
+            !currentRole ||
+            (!currentAccessPIN && !currentSeniorPIN)
+        ) {
+            return;
+        }
+
+        installationAccessCheckRunning = true;
+
+        try {
+            const authorised = await checkInstallationAccess();
+
+            // A temporary error is unknown, not confirmed revocation.
+            if (authorised === null) {
+                return;
+            }
+
+            // Only a confirmed denial ends the current session.
+            if (authorised === false) {
+                showWelcome();
+
+                await appAlert(
+                    "Your access has been revoked or your account " +
+                    "deactivated. You have been logged out.",
+                    "Access revoked",
+                    "danger"
+                );
+            }
+        } catch (error) {
+            console.error(
+                "Automatic access monitoring failed:",
+                error
+            );
+        } finally {
+            installationAccessCheckRunning = false;
+        }
+    }, 30000);
+}
+
+/* =========================================================
+   INITIAL ACCESS
+   ========================================================= */
+
+function showInitialAccess() {
+
+    document.getElementById("app").innerHTML = `
+
+        <div class="screen">
+
+            <h1>Club Check-In</h1>
+
+            <h2>Initial Access</h2>
+
+            <p>
+                Enter the Initial Access Code and your
+                approved name to activate this device.
+            </p>
+
+            <input
+                type="password"
+                id="initialAccessCode"
+                placeholder="Initial Access Code"
+                autocomplete="off"
+            >
+
+            <input
+                type="text"
+                id="initialAccessName"
+                placeholder="Approved Name"
+                autocomplete="off"
+            >
+
+            <button onclick="initialisePWA()">
+                Activate Device
+            </button>
+
+            <p id="initialAccessMessage"></p>
+
+        </div>
+
+    `;
+}
+
+/* =========================================================
+   AUTHORISED STARTUP
+   ========================================================= */
+
+async function completeAuthorisedStartup() {
+
+    // 1. Load age groups before restoring saved data
+    const ageGroupsLoaded =
+        await loadAgeGroupsFromSupabase();
+
+    if (!ageGroupsLoaded) {
+        return false;
+    }
+
+    // 2. Restore local data only after authorisation
+    loadSavedData();
+
+    // 3. Load the current season
+    await loadCurrentSeasonFromSupabase();
+
+    // 4. Display the welcome screen and monitor access
+    showWelcome();
+    startInstallationAccessMonitoring();
+
+    return true;
+}
+
+/* =========================================================
+   INITIALISE PWA
+   ========================================================= */
+
+async function initialisePWA() {
+
+    const codeInput =
+        document.getElementById("initialAccessCode");
+
+    const nameInput =
+        document.getElementById("initialAccessName");
+
+    const message =
+        document.getElementById("initialAccessMessage");
+
+    const code = codeInput.value.trim();
+    const name = nameInput.value.trim();
+
+    if (!code || !name) {
+        message.textContent =
+            "Please enter the access code and approved name.";
+        return;
+    }
+
+    message.textContent = "Activating device...";
+
+    let installationID = getInstallationID();
+
+    let { data, error } = await supabaseClient.rpc(
+        "initialise_installation",
+        {
+            supplied_code: code,
+            supplied_name: name,
+            supplied_installation_id: installationID
+        }
+    );
+
+    // Recover from a duplicate installation ID
+    const duplicateInstallationID =
+        error &&
+        error.code === "23505" &&
+        (
+            (error.message || "").includes(
+                "installations_installation_id_key"
+            ) ||
+            (error.details || "").includes(
+                "installation_id"
+            )
+        );
+
+    if (duplicateInstallationID) {
+
+        console.warn(
+            "Previous installation ID already exists. Generating a replacement."
+        );
+
+        localStorage.removeItem("installationID");
+
+        installationID = getInstallationID();
+
+        const retry = await supabaseClient.rpc(
+            "initialise_installation",
+            {
+                supplied_code: code,
+                supplied_name: name,
+                supplied_installation_id: installationID
+            }
+        );
+
+        data = retry.data;
+        error = retry.error;
+    }
+
+    if (error) {
+
+        console.error(
+            "PWA initialisation failed:",
+            error
+        );
+
+        message.textContent =
+            "Unable to activate this device. Please try again.";
+
+        return;
+    }
+
+    if (data === "LOCKED") {
+        message.textContent = "This is locked now.";
+        return;
+    }
+
+    if (data === "ALREADY_INSTALLED") {
+
+        message.textContent =
+            "This user is already registered on another device. Please contact an Admin user.";
+
+        return;
+    }
+
+    if (!data) {
+
+        message.textContent =
+            "Invalid access code or approved name.";
+
+        return;
+    }
+
+    message.textContent =
+        "Device activated. Verifying access...";
+
+    // Verify the newly created installation before loading data
+    const installationAuthorised =
+        await checkInstallationAccess();
+
+    if (!installationAuthorised) {
+
+        message.textContent =
+            "Device activated, but access could not be verified. Please refresh the app or contact an Admin user.";
+
+        return;
+    }
+
+    // Use the same startup sequence as existing installations
+    const startupCompleted =
+        await completeAuthorisedStartup();
+
+    if (!startupCompleted) {
+
+        message.textContent =
+            "Device activated, but setup could not be completed. Please refresh the app and try again.";
+
+        return;
+    }
+}
+
+/* =========================================================
+   START
+   ========================================================= */
+
+(async function () {
+
+    const installationAuthorised =
+        await checkInstallationAccess();
+
+    // Confirmed access denial: show the activation screen.
+    if (installationAuthorised === false) {
+        showInitialAccess();
+        return;
+    }
+
+    // Temporary connection/RPC error: do not treat it as revocation.
+    // Protected startup remains blocked until access can be verified.
+    if (installationAuthorised === null) {
+        showWelcome();
+
+        await appAlert(
+            "Unable to verify this device's access. " +
+            "Check your connection and refresh the app.",
+            "Unable to verify access",
+            "warning"
+        );
+
+        return;
+    }
+
+    // Access confirmed: continue normal startup.
+    const startupCompleted =
+        await completeAuthorisedStartup();
+
+    if (!startupCompleted) {
+        console.error(
+            "Authorised startup could not be completed."
+        );
+    }
+
+})();
+
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+            .catch(error => {
+                console.error(
+                    "Service worker registration failed:",
+                    error
+                );
+            });
+    });
+}
+</script>
+
+</body>
+</html>
