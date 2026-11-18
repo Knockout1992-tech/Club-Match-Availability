@@ -716,10 +716,10 @@ let matchAdminAgeGroups = [];
 let latestCreatedFixtureLink = null;
 
 const MATCH_AVAILABILITY_URL =
-    "/";
+    "https://rhrufc-mini.pages.dev/";
 
 const PARENT_PORTAL_URL =
-    "/";
+    "https://rhrufc-mini.pages.dev/";
 
 
 function matchAdminEscape(value) {
