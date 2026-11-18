@@ -1,51 +1,117 @@
 name: Automatic app version
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: write
+
 concurrency:
-  group: parent-portal-version-${{ github.ref }}
+  group: automatic-version-${{ github.ref }}
   cancel-in-progress: false
+
 jobs:
   bump-version:
-    if: \${{ !contains(github.event.head_commit.message, '[version-managed]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[version-managed]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-      - name: Increment semantic version and update cache references
+
+      - name: Increment app versions for changed applications
+        env:
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
           node <<'NODE'
           const fs = require('fs');
-          const current = fs.readFileSync('VERSION', 'utf8').trim();
-          const match = current.match(/^(\d+)\.(\d+)\.(\d+)$/);
-          if (!match) throw new Error('VERSION must be major.minor.patch.');
-          let major = Number(match[1]), minor = Number(match[2]), patch = Number(match[3]);
-          if (patch < 9) patch++;
-          else if (minor < 9) { patch = 0; minor++; }
-          else { patch = 0; minor = 0; major++; }
-          const next = [major, minor, patch].join('.');
-          fs.writeFileSync('VERSION', next + '\n');
-          let html = fs.readFileSync('index.html', 'utf8');
-          const css = /(style\.css\?v=)\d+\.\d+\.\d+/g;
-          const js = /(app\.js\?v=)\d+\.\d+\.\d+/g;
-          const footer = /(<span class="app-version">v)\d+\.\d+\.\d+(<\/span>)/;
-          if (!css.test(html) || !js.test(html) || !footer.test(html)) {
-            throw new Error('Could not find expected CSS, JS and footer version references.');
+          const { execFileSync } = require('child_process');
+
+          function increment(version) {
+            const match = version.match(/^(\\d+)\\.(\\d+)\\.(\\d+)$/);
+            if (!match) throw new Error('Invalid semantic version: ' + version);
+            let major = Number(match[1]);
+            let minor = Number(match[2]);
+            let patch = Number(match[3]);
+            if (patch < 9) patch++;
+            else if (minor < 9) { patch = 0; minor++; }
+            else { patch = 0; minor = 0; major++; }
+            return [major, minor, patch].join('.');
           }
-          html = html.replace(css, '$1' + next).replace(js, '$1' + next).replace(footer, '$1' + next + '$2');
-          fs.writeFileSync('index.html', html);
-          console.log('Version bumped: ' + current + ' -> ' + next);
+
+          const before = process.env.BEFORE_SHA;
+          const current = process.env.CURRENT_SHA;
+          let changedFiles;
+          if (before && !/^0+$/.test(before)) {
+            changedFiles = execFileSync('git', ['diff', '--name-only', before, current], { encoding: 'utf8' });
+          } else {
+            changedFiles = execFileSync('git', ['diff', '--name-only', 'HEAD^', 'HEAD'], { encoding: 'utf8' });
+          }
+          const changed = changedFiles.split('\\n').filter(Boolean);
+          const pwaChanged = changed.some(file => file.startsWith('club-check-in/'));
+          console.log('Changed files:', changed);
+          console.log('Club Check-In changed:', pwaChanged);
+
+          // Parent portal versioning (existing behaviour).
+          const parentCurrent = fs.readFileSync('VERSION', 'utf8').trim();
+          const parentNext = increment(parentCurrent);
+          fs.writeFileSync('VERSION', parentNext + '\\n');
+
+          let parentHtml = fs.readFileSync('index.html', 'utf8');
+          const css = /(style\\.css\\?v=)\\d+\\.\\d+\\.\\d+/g;
+          const js = /(app\\.js\\?v=)\\d+\\.\\d+\\.\\d+/g;
+          const footer = /(<span class="app-version">v)\\d+\\.\\d+\\.\\d+(<\\/span>)/;
+          if (!css.test(parentHtml) || !js.test(parentHtml) || !footer.test(parentHtml)) {
+            throw new Error('Could not find expected parent portal CSS, JS and footer version references.');
+          }
+          parentHtml = parentHtml.replace(css, '$1' + parentNext)
+            .replace(js, '$1' + parentNext)
+            .replace(footer, '$1' + parentNext + '$2');
+          fs.writeFileSync('index.html', parentHtml);
+          console.log('Parent portal version:', parentCurrent, '->', parentNext);
+
+          // Club Check-In has its own version and service-worker cache.
+          // Only increment it when files inside club-check-in/ changed.
+          if (pwaChanged) {
+            const configPath = 'club-check-in/js/config.js';
+            const workerPath = 'club-check-in/service-worker.js';
+            let config = fs.readFileSync(configPath, 'utf8');
+            let worker = fs.readFileSync(workerPath, 'utf8');
+
+            const versionPattern = /const APP_VERSION = "V(\\d+\\.\\d+\\.\\d+)";/g;
+            const versionMatches = [...config.matchAll(versionPattern)];
+            if (versionMatches.length !== 1) {
+              throw new Error('Expected exactly one APP_VERSION in ' + configPath);
+            }
+            const pwaCurrent = versionMatches[0][1];
+            const pwaNext = increment(pwaCurrent);
+            config = config.replace(versionPattern, 'const APP_VERSION = "V' + pwaNext + '";');
+
+            const cachePattern = /(const CACHE_NAME = "club-check-in-v)(\\d+)(-[^"]*";)/;
+            const cacheMatch = worker.match(cachePattern);
+            if (!cacheMatch) throw new Error('Could not find Club Check-In service-worker cache name.');
+            const cacheNext = Number(cacheMatch[2]) + 1;
+            worker = worker.replace(cachePattern, '$1' + cacheNext + '$3');
+
+            fs.writeFileSync(configPath, config);
+            fs.writeFileSync(workerPath, worker);
+            console.log('Club Check-In version:', pwaCurrent, '->', pwaNext);
+            console.log('Club Check-In cache:', cacheMatch[2], '->', cacheNext);
+          }
           NODE
-      - name: Commit updated version
+
+      - name: Commit updated versions
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add VERSION index.html
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "chore: bump app version [version-managed]"
+          git add VERSION index.html club-check-in/js/config.js club-check-in/service-worker.js
+          if git diff --cached --quiet; then
+            echo "No version changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: bump app versions [version-managed]"
           git push
