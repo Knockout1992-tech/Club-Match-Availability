@@ -387,7 +387,9 @@ async function completePersonalLogin(data, authMethod = "pin") {
             logout();
             return;
         }
-        selectedAgeGroups = assigned.length === 1 ? [...assigned] : [];
+        // Load the Coach dashboard across every age group assigned to this user.
+        selectedAgeGroups = [...assigned];
+        currentAgeGroup = assigned[0];
     }
 
     let loaded = false;
@@ -408,12 +410,12 @@ async function completePersonalLogin(data, authMethod = "pin") {
     }
 
     if (currentRole === "coach") {
-        if (selectedAgeGroups.length === 1) {
-            currentAgeGroup = selectedAgeGroups[0];
-            await showCoachDashboard();
-        } else {
-            showCoachAgeGroups();
-        }
+        // Assigned groups are loaded together; do not send assigned coaches
+        // to the manual age-group selection screen.
+        const assigned = getAssignedCoachAgeGroups();
+        selectedAgeGroups = [...assigned];
+        currentAgeGroup = assigned[0] || null;
+        await showCoachDashboard();
     } else {
         await showSeniorDashboard();
     }
@@ -518,15 +520,10 @@ async function showCoachAreaFromAdmin() {
         return;
     }
 
-    selectedAgeGroups = assigned.length === 1 ? [...assigned] : [];
-
-    if (assigned.length === 1) {
-        currentAgeGroup = assigned[0];
-        await showCoachDashboard();
-    } else {
-        currentAgeGroup = null;
-        showCoachAgeGroups();
-    }
+    // Return to the combined dashboard for all groups assigned to this Coach.
+    selectedAgeGroups = [...assigned];
+    currentAgeGroup = assigned[0] || null;
+    await showCoachDashboard();
 }
 
 
