@@ -173,7 +173,7 @@ function showWelcome() {
                 </button>
 ${getInstallButtonHTML()}
 
-                <a class="policy-link" href="../policies/">Privacy &amp; Data Protection</a>
+                <a class="policy-link" href="/policies/" target="_blank" rel="noopener noreferrer">Privacy &amp; Data Protection</a>
 
                 <div class="welcome-version">
                     ${APP_VERSION}
