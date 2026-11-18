@@ -68,7 +68,7 @@ function renderPersonalLogin(message = "") {
                     <button class="secondary-button personal-login-secondary" onclick="resetPersonalLoginName()">Use a different name</button>
                 `}
                 ${getInstallButtonHTML()}
-                <a class="policy-link" href="https://rhrufc-mini.pages.dev/policies/">Privacy &amp; Data Protection</a>
+                <a class="policy-link" href="../policies/">Privacy &amp; Data Protection</a>
                 <div class="welcome-version">${APP_VERSION}</div>
             </div>
         </div>`;
