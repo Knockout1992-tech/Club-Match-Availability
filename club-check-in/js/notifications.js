@@ -1,0 +1,92 @@
+// =========================================================
+// COACH PUSH NOTIFICATIONS
+// =========================================================
+
+const COACH_PUSH_VAPID_PUBLIC_KEY = "BNHfhKxifkbC1pa8rGkaBT7FWsTsQe5Z4DGaH4XWWOdG_UgDkp_iGlvA9Zd_Q21yuKnyG2jGPUzfxG5uP78Qz_Q";
+
+function coachPushBase64UrlToBytes(value) {
+    const padded = value + "=".repeat((4 - value.length % 4) % 4);
+    const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
+    return Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+}
+
+async function coachPushRequest(action, subscription = null) {
+    const { data, error } = await supabaseClient.functions.invoke("coach_push_subscriptions", {
+        body: {
+            action,
+            coach_code: currentAuthSessionToken,
+            installation_id: getInstallationID(),
+            ...(subscription ? { subscription } : {})
+        }
+    });
+    if (error) {
+        console.error("Coach notification request failed:", error);
+        throw new Error(data?.error || "Unable to update notification settings.");
+    }
+    if (!data?.success) throw new Error(data?.error || "Unable to update notification settings.");
+    return data;
+}
+
+async function enableCoachNotifications() {
+    if (currentRole !== "coach" || !currentPersonID || !currentAuthSessionToken) {
+        return appAlert("Please sign in to your Coach account first.", "Sign-in required", "warning");
+    }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        return appAlert("Push notifications are not supported by this browser. Install Club Check-In as an app and try again.", "Not supported", "warning");
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+            return appAlert("Notifications are blocked. Allow notifications for Club Check-In in your browser or device settings.", "Notifications not enabled", "warning");
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: coachPushBase64UrlToBytes(COACH_PUSH_VAPID_PUBLIC_KEY)
+            });
+        }
+
+        await coachPushRequest("subscribe", subscription.toJSON());
+        await appAlert("This device is now set up to receive Coach notifications.", "Notifications enabled", "success");
+    } catch (error) {
+        console.error("Enable Coach notifications failed:", error);
+        await appAlert(error.message || "Unable to enable notifications on this device.", "Notifications unavailable", "danger");
+    }
+}
+
+async function disableCoachNotifications() {
+    if (currentRole !== "coach" || !currentAuthSessionToken) return;
+    try {
+        await coachPushRequest("unsubscribe");
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) await subscription.unsubscribe();
+        await appAlert("Notifications have been disabled on this device.", "Notifications disabled", "success");
+    } catch (error) {
+        console.error("Disable Coach notifications failed:", error);
+        await appAlert(error.message || "Unable to disable notifications.", "Update failed", "danger");
+    }
+}
+
+async function showCoachNotificationSettings() {
+    if (currentRole !== "coach") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        return appAlert("This browser does not support web push notifications.", "Not supported", "warning");
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    const enabled = !!subscription && Notification.permission === "granted";
+    const choice = await appConfirm(
+        enabled
+            ? "Notifications are enabled on this device. Would you like to turn them off?"
+            : "Enable notifications on this device to receive fixture and Season Planner updates?",
+        enabled ? "Coach notifications" : "Enable Coach notifications"
+    );
+    if (!choice) return;
+    if (enabled) await disableCoachNotifications();
+    else await enableCoachNotifications();
+}
