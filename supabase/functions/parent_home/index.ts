@@ -320,24 +320,31 @@ Deno.serve(async (req) => {
         });
         if (seniorError || seniorVerified !== true) return response({ error: "Invalid Senior access code" }, 401);
       } else {
-        if (selectedAgeGroups.length === 0 || selectedAgeGroups.some((name: any) => typeof name !== "string")) {
-          return response({ error: "Select your age groups before synchronising availability" }, 403);
+        // Coach calendar synchronisation uses the individual session token.
+        // Age groups are loaded from server-side assignments, never browser selections.
+        if (!/^[0-9a-f]{64}$/.test(coachCode)) {
+          return response({ error: "Please sign in with your personal Coach account before synchronising availability" }, 401);
         }
-        const { data: coachVerified, error: coachError } = await adminClient.rpc("verify_access_code_for_installation", {
-          supplied_code: coachCode,
-          code_type: "coach",
+        const { data: authenticatedPersonId, error: sessionError } = await adminClient.rpc("get_authenticated_person_id", {
+          supplied_credential: coachCode,
+          required_access_role: "coach",
           supplied_installation_id: installationId
         });
-        if (coachError || coachVerified !== true) return response({ error: "Invalid Coach access code" }, 401);
-        const { data: activeGroups, error: groupsError } = await adminClient
-          .from("age_groups").select("id,age_group,display_name").eq("active", true);
-        if (groupsError) return response({ error: "Unable to verify selected age groups" }, 500);
-        selectedAgeGroupIds = (activeGroups ?? [])
-          .filter((group: any) => selectedAgeGroups.includes(group.age_group) || selectedAgeGroups.includes(group.display_name))
-          .map((group: any) => Number(group.id));
-        if (selectedAgeGroupIds.length !== new Set(selectedAgeGroups).size) {
-          return response({ error: "One or more selected age groups are no longer active" }, 403);
+        if (sessionError || !authenticatedPersonId) {
+          return response({ error: "Your Coach session is no longer valid. Please sign in again." }, 401);
         }
+        const { data: assignments, error: assignmentsError } = await adminClient
+          .from("user_age_group_assignments")
+          .select("age_group_id")
+          .eq("person_id", authenticatedPersonId);
+        if (assignmentsError) return response({ error: "Unable to verify Coach age-group access" }, 500);
+        const assignedIds = [...new Set((assignments ?? []).map((item: any) => Number(item.age_group_id)))];
+        if (assignedIds.length === 0) return response({ error: "No age groups are assigned to this Coach account" }, 403);
+        const { data: activeGroups, error: groupsError } = await adminClient
+          .from("age_groups").select("id").eq("active", true).in("id", assignedIds);
+        if (groupsError) return response({ error: "Unable to verify Coach age-group access" }, 500);
+        selectedAgeGroupIds = (activeGroups ?? []).map((group: any) => Number(group.id));
+        if (selectedAgeGroupIds.length === 0) return response({ error: "No active age groups are assigned to this Coach account" }, 403);
       }
 
       const synced = await syncCurrentSeasonEvents(adminClient, new Intl.DateTimeFormat("en-CA", {
