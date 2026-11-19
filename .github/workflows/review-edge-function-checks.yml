@@ -25,4 +25,10 @@ jobs:
             supabase/functions/create_fixture/index.ts \
             supabase/functions/manage_match_child/index.ts \
             supabase/functions/publish_fixture/index.ts \
-            supabase/functions/parent_home/index.ts
+            supabase/functions/parent_home/index.ts \
+            supabase/functions/club_checkin_passkeys/index.ts \
+            supabase/functions/get_fixture/index.ts \
+            supabase/functions/manage_parent_family/index.ts \
+            supabase/functions/manage_submission/index.ts \
+            supabase/functions/public_retention_policy/index.ts \
+            supabase/functions/submit_availability/index.ts
