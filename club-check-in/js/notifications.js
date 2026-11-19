@@ -129,7 +129,7 @@ async function openPendingCoachNotification() {
         const matching = (seasonPlannerData?.events || []).find(event =>
             target.source === "season_planner"
                 ? Number(event.id) === eventId
-                : Number(event.linked_fixture_id) === eventId
+                : Number(event.linked_fixture_id || seasonPlannerAvailabilityByEvent?.get(Number(event.id))) === eventId
         );
         if (matching) {
             seasonPlannerShowPast = true;
