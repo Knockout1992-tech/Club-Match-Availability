@@ -593,6 +593,8 @@ async function loadDashboardUpcoming(hostId, role, groups) {
             .filter(Boolean).join(" · ");
         copy.append(eyebrow, title, meta);
 
+        // Show the event immediately. Availability counts can load afterwards.
+
         // Availability is shown inside the same Up Next card, never as a separate panel.
         // The dashboard may have changed role or logged out while the
         // season-planner request was in flight. Do not make a fixture request
@@ -2028,7 +2030,7 @@ function showSeniorDashboard() {
                 : ""
             }
 
-            <button class="attendance-insights-entry" onclick="showAttendanceInsights()"><span class="attendance-entry-icon">▥</span><span><strong>Attendance Insights</strong><small>Club and age-group attendance since November</small></span><span class="attendance-entry-arrow">›</span></button>
+            <button class="attendance-insights-entry" onclick="showAttendanceInsights()"><span><strong>Attendance Insights</strong><small>Club and age-group attendance since November</small></span><span class="attendance-entry-arrow">›</span></button>
 
             <div class="menu-grid">
 
