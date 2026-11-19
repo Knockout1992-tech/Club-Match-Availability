@@ -111,7 +111,6 @@ Deno.serve(async (req) => {
     const coachCode = body?.coach_code;
     const action = body?.action;
     const fixtureId = body?.fixture_id;
-    const selectedAgeGroups = body?.selected_age_groups;
 
     // Determine which role is making the request.
     const requestedRole =
@@ -267,29 +266,23 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
         }, 400);
       }
 
-      // Coach access remains restricted to fixtures containing one
-      // of the age groups selected in the Coach dashboard.
+      // A Coach may change or cancel a fixture only when every linked
+      // age group is assigned to that Coach. Never trust browser selections.
       if (requestedRole === "coach") {
-        if (!Array.isArray(selectedAgeGroups) || selectedAgeGroups.length === 0) {
-          return response({ error: "No permitted age groups were supplied" }, 403);
-        }
-
         const { data: fixtureGroups, error: fixtureGroupsError } = await supabase
           .from("match_fixture_age_groups")
-          .select("age_groups(display_name, age_group)")
+          .select("age_group_id")
           .eq("fixture_id", fixtureId);
 
         if (fixtureGroupsError) {
           return response({ error: "Unable to verify fixture age groups" }, 500);
         }
 
-        const hasPermittedGroup = (fixtureGroups ?? []).some((item: any) => {
-          const group = item.age_groups;
-          return group && (authorisedAgeGroupNames.includes(group.display_name) || authorisedAgeGroupNames.includes(group.age_group));
-        });
-
-        if (!hasPermittedGroup) {
-          return response({ error: "You do not have access to manage this fixture" }, 403);
+        if (!fixtureGroups?.length ||
+            fixtureGroups.some((item: any) =>
+              !authorisedAgeGroupIDs.includes(Number(item.age_group_id))
+            )) {
+          return response({ error: "You do not have access to manage every age group in this fixture" }, 403);
         }
       }
 
@@ -559,9 +552,9 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
           (a: any, b: any) => a.sort_order - b.sort_order,
         );
 
-      // Coaches only receive response data for the age groups assigned
-      // to their dashboard. Senior retains the complete fixture view.
-      const groups = requestedRole === "coach" && action === "detail"
+      // Coaches receive fixture and response data only for their assigned
+      // age groups, on both list and detail requests.
+      const groups = requestedRole === "coach"
         ? allGroups.filter((group: any) => selectedAgeGroupIDs.includes(Number(group.id)))
         : allGroups;
 
@@ -569,7 +562,7 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
       const allSubmissions = (fixture.match_submissions ?? []).filter(
         (submission: any) => (submission.match_availability ?? []).length > 0,
       );
-      const submissions = requestedRole === "coach" && action === "detail"
+      const submissions = requestedRole === "coach"
         ? allSubmissions
             .map((submission: any) => ({
               ...submission,
@@ -578,6 +571,9 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
             }))
             .filter((submission: any) => submission.match_availability.length > 0)
         : allSubmissions;
+
+      // A Coach must not even receive fixture metadata for unrelated groups.
+      if (requestedRole === "coach" && groups.length === 0) continue;
 
       const children = submissions.flatMap((submission: any) =>
         (submission.match_availability ?? []).map((child: any) => ({
@@ -705,7 +701,7 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
 
     return response({
       success: true,
-      requested_by: personId,
+      requested_by: requestedRole === "coach" ? authenticatedPersonId : personId,
       requested_role: requestedRole,
       available_age_groups: availableAgeGroups ?? [],
       fixtures: results,
