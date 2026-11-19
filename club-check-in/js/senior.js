@@ -2100,7 +2100,10 @@ function renderAttendanceInsights(customFrom = null, customTo = null) {
     today.setHours(0, 0, 0, 0);
     let from = null, to = attendanceDateKey(today), periodLabel = "All available history";
 
-    if (attendanceInsightsPeriod === "this-week") {
+    if (attendanceInsightsPeriod === "today") {
+        from = attendanceDateKey(today);
+        periodLabel = "Today";
+    } else if (attendanceInsightsPeriod === "this-week") {
         from = attendanceDateKey(attendanceStartOfWeek(today));
         periodLabel = "This week";
     } else if (attendanceInsightsPeriod === "last-week") {
@@ -2139,7 +2142,7 @@ function renderAttendanceInsights(customFrom = null, customTo = null) {
     const overallPct = totalPotential ? Math.round(totalPresent / totalPotential * 100) : 0;
 
     const periods = [
-        ["this-week", "This week"], ["last-week", "Last week"],
+        ["today", "Today"], ["this-week", "This week"], ["last-week", "Last week"],
         ["this-month", "This month"], ["last-month", "Last month"],
         ["last-3-months", "Last 3 months"], ["year-to-date", "Year to date"],
         ["all-time", "All time"]
