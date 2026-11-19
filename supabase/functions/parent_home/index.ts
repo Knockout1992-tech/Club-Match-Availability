@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
       const seniorCode = typeof body.senior_code === "string" ? body.senior_code : "";
       const coachCode = typeof body.coach_code === "string" ? body.coach_code : "";
       const selectedAgeGroups = Array.isArray(body.selected_age_groups) ? body.selected_age_groups : [];
-      if (!installationId || (!seniorCode && !coachCode)) return response({ error: "Access is required" }, 401);
+      if (!installationId || Boolean(seniorCode) === Boolean(coachCode)) return response({ error: "Provide exactly one valid access credential" }, 401);
       const url = Deno.env.get("SUPABASE_URL");
       const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (!url || !key) return response({ error: "Service unavailable" }, 500);
