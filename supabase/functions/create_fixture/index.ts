@@ -206,6 +206,25 @@ const requestedRole = hasCoachCode ? "coach" : "senior";
       }, 401);
     }
 
+    if (requestedRole === "coach") {
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("user_age_group_assignments")
+        .select("age_group_id")
+        .eq("person_id", personId);
+      if (assignmentsError) {
+        console.error("Coach age-group lookup failed:", assignmentsError.message);
+        return response({ error: "Unable to verify Coach age-group access" }, 500);
+      }
+      const assignedIDs = new Set((assignments ?? []).map((item: any) => Number(item.age_group_id)));
+      if (uniqueAgeGroupIds.some((id: number) => !assignedIDs.has(id))) {
+        await writeSecurityAudit(supabase, "fixture_create_access", "denied", "warning", "coach", installationId.trim(), {
+          reason: "unassigned_age_group_requested",
+          requested_age_group_ids: uniqueAgeGroupIds,
+        });
+        return response({ error: "You can only create fixtures for age groups assigned to your Coach account" }, 403);
+      }
+    }
+
     // Confirm all selected age groups exist and are active.
     const { data: ageGroups, error: ageError } = await supabase
       .from("age_groups")
