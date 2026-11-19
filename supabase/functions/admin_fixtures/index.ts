@@ -703,7 +703,9 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
       success: true,
       requested_by: requestedRole === "coach" ? authenticatedPersonId : personId,
       requested_role: requestedRole,
-      available_age_groups: availableAgeGroups ?? [],
+      available_age_groups: requestedRole === "coach"
+        ? (availableAgeGroups ?? []).filter((group: any) => selectedAgeGroupIDs.includes(Number(group.id)))
+        : (availableAgeGroups ?? []),
       fixtures: results,
     });
 
