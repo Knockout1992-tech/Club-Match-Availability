@@ -27,6 +27,24 @@ async function hashToken(token: string): Promise<string> {
     .join("");
 }
 
+
+async function markParentActivity(supabase: any, parentAccountId: number, familyId: number | null) {
+  const ids = [parentAccountId];
+  if (familyId) {
+    const { data: members, error } = await supabase
+      .from("match_parent_family_members")
+      .select("parent_access_id")
+      .eq("family_id", familyId);
+    if (error) throw new Error("Unable to update family activity");
+    for (const member of members ?? []) ids.push(Number(member.parent_access_id));
+  }
+  const { error } = await supabase
+    .from("match_parent_access")
+    .update({ last_activity_at: new Date().toISOString() })
+    .in("id", [...new Set(ids)]);
+  if (error) throw new Error("Unable to update parent activity");
+}
+
 function normalise(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -45,6 +63,31 @@ function constantTimeEqual(a: string, b: string): boolean {
   return difference === 0;
 }
 
+
+async function writeSecurityAudit(
+  db: any,
+  eventType: string,
+  outcome: string,
+  severity: string,
+  actorReference: number | null,
+  details: Record<string, unknown> = {},
+) {
+  try {
+    const { error } = await db.from("system_admin_audit_log").insert({
+      source_system: "match_availability_parent_portal",
+      severity,
+      event_type: eventType,
+      outcome,
+      actor_type: "parent",
+      actor_reference: actorReference === null ? null : String(actorReference),
+      details,
+    });
+    if (error) console.error("Security audit write failed:", error.message);
+  } catch (error) {
+    console.error("Security audit write failed:", error);
+  }
+}
+
 async function authenticateParent(supabase: any, parentName: string, pin: string, allowCreate: boolean) {
   const normalisedName = normalise(parentName);
   let { data: account, error } = await supabase.from("match_parent_access")
@@ -59,7 +102,11 @@ async function authenticateParent(supabase: any, parentName: string, pin: string
     const { data: created, error: createError } = await supabase.from("match_parent_access")
       .insert({ parent_name: parentName.trim(), normalised_name: normalisedName, pin_salt: salt, pin_hash: hash })
       .select("id,parent_name,pin_salt,pin_hash,failed_attempts,locked_until").single();
-    if (!createError && created) return { ok: true, created: true };
+    if (!createError && created) {
+      await writeSecurityAudit(supabase, "parent_account_registered", "success", "info", Number(created.id));
+      await writeSecurityAudit(supabase, "parent_pin_verification", "success", "info", Number(created.id), { registration: true });
+      return { ok: true, created: true, account: created };
+    }
     const retry = await supabase.from("match_parent_access")
       .select("id,parent_name,pin_salt,pin_hash,failed_attempts,locked_until")
       .eq("normalised_name", normalisedName).maybeSingle();
@@ -67,31 +114,47 @@ async function authenticateParent(supabase: any, parentName: string, pin: string
     account = retry.data;
   }
 
-  if (!account) return { ok: false, status: 401, error: "Parent account not found. Please return to Parent Home and register first." };
+  if (!account) {
+    await writeSecurityAudit(supabase, "parent_pin_verification", "failed", "warning", null, { reason: "account_not_found" });
+    return { ok: false, status: 401, error: "Parent account not found. Please return to Parent Home and register first." };
+  }
   if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
+    await writeSecurityAudit(supabase, "parent_pin_verification", "blocked", "warning", Number(account.id), { reason: "account_locked" });
     return { ok: false, status: 429, error: "Too many incorrect PIN attempts. Please try again in 10 minutes." };
   }
 
-  const suppliedHash = await derivePinHash(pin, account.pin_salt);
-  if (!constantTimeEqual(suppliedHash, account.pin_hash)) {
-    const attempts = Number(account.failed_attempts || 0) + 1;
-    const lockedUntil = attempts >= 5 ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
-    await supabase.from("match_parent_access").update({
-      failed_attempts: attempts >= 5 ? 0 : attempts,
-      locked_until: lockedUntil,
-      updated_at: new Date().toISOString(),
-    }).eq("id", account.id);
-    return lockedUntil
-      ? { ok: false, status: 429, error: "Too many incorrect PIN attempts. Please try again in 10 minutes." }
-      : { ok: false, status: 401, error: "That PIN is incorrect. Please try again." };
-  }
-
-  await supabase.from("match_parent_access").update({
-    failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString(),
-  }).eq("id", account.id);
-  return { ok: true, created: false };
+  return { ...(await verifyParentPinAtomically(supabase, account, pin)), created: false };
 }
 
+async function verifyParentPinAtomically(supabase: any, account: any, pin: string) {
+  const suppliedHash = await derivePinHash(pin, account.pin_salt);
+  const { data: result, error } = await supabase.rpc("verify_parent_pin_attempt", {
+    p_parent_access_id: Number(account.id),
+    p_supplied_hash: suppliedHash,
+  });
+  if (error || !result || typeof result.reason === "undefined" && result.ok !== true) {
+    console.error("Parent PIN verification failed:", error?.message);
+    throw new Error("Unable to verify parent access");
+  }
+  if (result.ok === true) {
+    return { ok: true, account };
+  }
+  const reason = result.reason;
+  const locked = reason === "five_failed_attempts";
+  const blocked = reason === "account_locked";
+  const outcome = locked ? "locked_out" : blocked ? "blocked" : "failed";
+  const severity = locked ? "critical" : "warning";
+  await writeSecurityAudit(supabase, "parent_pin_verification", outcome, severity, Number(account.id), {
+    reason: locked ? "five_failed_attempts" : blocked ? "account_locked" : "incorrect_pin",
+  });
+  return {
+    ok: false,
+    status: locked || blocked ? 429 : 401,
+    error: locked || blocked
+      ? "Too many incorrect PIN attempts. Please try again in 10 minutes."
+      : "That PIN is incorrect. Please try again.",
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -135,9 +198,10 @@ Deno.serve(async (req) => {
       child.child_name.trim().length <= 100 &&
       Number.isInteger(child.age_group_id) &&
       child.age_group_id > 0 &&
-      typeof child.school_year === "string" &&
-      child.school_year.trim().length > 0 &&
-      child.school_year.trim().length <= 30 &&
+      (child.school_year === undefined || child.school_year === null ||
+        child.school_year === "" ||
+        (typeof child.school_year === "string" &&
+          /^(1[0-3]|[1-9])$/.test(child.school_year.trim()))) &&
       ["available", "unavailable", "unsure"].includes(child.availability)
     );
 
@@ -149,7 +213,7 @@ Deno.serve(async (req) => {
 
     // Prevent duplicate children within the same submission.
     const childKeys = children.map((child: any) =>
-      `${normalise(child.child_name)}|${child.age_group_id}|${normalise(child.school_year)}`
+      `${normalise(child.child_name)}|${child.age_group_id}|${normalise(child.school_year || "")}`
     );
 
     if (new Set(childKeys).size !== childKeys.length) {
@@ -175,6 +239,11 @@ Deno.serve(async (req) => {
 
     const parentAccess = await authenticateParent(supabase, parentName.trim(), parentPin, false);
     if (!parentAccess.ok) return response({ error: parentAccess.error }, parentAccess.status);
+    const parentAccountId = Number(parentAccess.account?.id);
+    const { data: familyMembership, error: familyMembershipError } = await supabase
+      .from("match_parent_family_members").select("family_id").eq("parent_access_id", parentAccountId).maybeSingle();
+    if (familyMembershipError) return response({ error: "Unable to load family access" }, 500);
+    const familyId = familyMembership?.family_id ?? null;
 
     // Find the fixture using its private public-link token.
     const fixtureHash = await hashToken(fixtureToken);
@@ -289,6 +358,12 @@ Deno.serve(async (req) => {
       .join("");
     const editTokenHash = await hashToken(editToken);
 
+    if (familyId) {
+      const { data: existingFamilySubmission, error: existingFamilyError } = await supabase
+        .from("match_submissions").select("id").eq("family_id", familyId).eq("fixture_id", fixture.id).maybeSingle();
+      if (existingFamilyError) return response({ error: "Unable to check shared family response" }, 500);
+      if (existingFamilySubmission) return response({ error: "A linked parent has already started a response for this fixture. Please return to your fixture list and reopen it to see the latest response." }, 409);
+    }
     const { data: submission, error: submissionError } = await supabase
       .from("match_submissions")
       .insert({
@@ -296,6 +371,8 @@ Deno.serve(async (req) => {
         parent_name: parentName.trim(),
         parent_contact: null,
         edit_token_hash: editTokenHash,
+        family_id: familyId,
+        last_updated_by_parent_id: parentAccountId,
       })
       .select("id")
       .single();
@@ -314,7 +391,7 @@ Deno.serve(async (req) => {
 
     const availabilityRows = children.map((child: any) => {
       const childName = normalise(child.child_name);
-      const schoolYear = normalise(child.school_year);
+      const schoolYear = normalise(child.school_year || "");
       const ageGroupId = child.age_group_id;
       const ageGroupName = groupNames.get(ageGroupId);
 
@@ -328,14 +405,14 @@ Deno.serve(async (req) => {
         (previous: any) =>
           normalise(previous.child_name) === childName &&
           previous.age_group_id === ageGroupId &&
-          normalise(previous.school_year) === schoolYear,
+          normalise(previous.school_year || "") === schoolYear,
       );
 
       return {
         submission_id: submission.id,
         child_name: child.child_name.trim(),
         age_group_id: ageGroupId,
-        school_year: child.school_year.trim(),
+        school_year: child.school_year ? child.school_year.trim() : null,
         availability: child.availability,
         duplicate_review_status:
           playerDuplicate || submissionDuplicate
@@ -365,6 +442,8 @@ Deno.serve(async (req) => {
         error: "Unable to save child availability",
       }, 500);
     }
+
+    await markParentActivity(supabase, parentAccountId, familyId);
 
     return response({
       success: true,
