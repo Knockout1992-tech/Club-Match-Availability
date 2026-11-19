@@ -2924,7 +2924,7 @@ function renderPlayerManagementList(ageGroup) {
                                 player.coachGmsSuggestion && !player.gms
                                 ? `
                                     <div class="player-small">
-                                        Coach has suggested GMS
+                                        GMS registration suggested by coach
                                     </div>
                                 `
                                 : ""
@@ -3469,9 +3469,9 @@ async function showNewSeason() {
 
     renderShell(`
         <div class="card">
-            <button class="back-button" onclick="showSeniorDashboard()">← Back</button>
+            <button class="back-button" onclick="showSeniorDashboard()">← Back to Dashboard</button>
 
-            <h2>New Season</h2>
+            <h2>Start New Season</h2>
             <div class="subtitle">Review player progression and coach assignments before starting the new season.</div>
 
             <div class="info-box warning-box">
@@ -3515,7 +3515,7 @@ async function confirmNewSeason() {
     const preview = window.seasonRolloverPreview;
     if (!preview || preview.current_season !== currentSeason) {
         await appAlert(
-            "The rollover review is no longer available. Please reopen New Season.",
+            "The rollover review is no longer available. Please reopen Start New Season.",
             "Review expired",
             "warning"
         );
