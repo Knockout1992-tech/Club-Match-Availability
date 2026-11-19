@@ -77,16 +77,20 @@ async function showCoachNotificationSettings() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
         return appAlert("This browser does not support web push notifications.", "Not supported", "warning");
     }
+
+    // Request permission directly from the dashboard button tap. This is
+    // important on iOS, where the browser requires a user gesture.
+    if (Notification.permission !== "granted") {
+        return enableCoachNotifications();
+    }
+
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    const enabled = !!subscription && Notification.permission === "granted";
+    if (!subscription) return enableCoachNotifications();
+
     const choice = await appConfirm(
-        enabled
-            ? "Notifications are enabled on this device. Would you like to turn them off?"
-            : "Enable notifications on this device to receive fixture and Season Planner updates?",
-        enabled ? "Coach notifications" : "Enable Coach notifications"
+        "Notifications are enabled on this device. Would you like to turn them off?",
+        "Coach notifications"
     );
-    if (!choice) return;
-    if (enabled) await disableCoachNotifications();
-    else await enableCoachNotifications();
+    if (choice) await disableCoachNotifications();
 }
