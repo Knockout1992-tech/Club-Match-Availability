@@ -2245,7 +2245,6 @@ async function showAttendanceInsights() {
                     <h2>Attendance Insights</h2>
                     <div class="subtitle">Explore attendance across the club over time.</div>
                 </div>
-                <div class="attendance-insights-mark" aria-hidden="true">↗</div>
             </div>
             <div id="attendanceInsightsContent"><div class="info-box">Loading attendance history…</div></div>
         </div>
