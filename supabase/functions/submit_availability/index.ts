@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
   }
 
   let submissionId: number | null = null;
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: any = null;
 
   try {
     const body = await req.json();
@@ -238,8 +238,14 @@ Deno.serve(async (req) => {
     });
 
     const parentAccess = await authenticateParent(supabase, parentName.trim(), parentPin, false);
-    if (!parentAccess.ok) return response({ error: parentAccess.error }, parentAccess.status);
-    const parentAccountId = Number(parentAccess.account?.id);
+    if (!parentAccess.ok) {
+      const failure = parentAccess as { error: string; status: number };
+      return response({ error: failure.error }, failure.status);
+    }
+    if (!("account" in parentAccess) || !parentAccess.account) {
+      return response({ error: "Unable to verify parent access" }, 401);
+    }
+    const parentAccountId = Number(parentAccess.account.id);
     const { data: familyMembership, error: familyMembershipError } = await supabase
       .from("match_parent_family_members").select("family_id").eq("parent_access_id", parentAccountId).maybeSingle();
     if (familyMembershipError) return response({ error: "Unable to load family access" }, 500);
