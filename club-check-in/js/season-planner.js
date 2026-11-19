@@ -406,7 +406,9 @@ function renderSeasonPlanner() {
         "availability-review":["Event Availability","Review parent responses and update player availability."],
         setup:["Season Setup","Set the dates for your club season."]
     };
-    const header=headers[seasonPlannerPage]||headers.home;
+    const header = seasonPlannerPage === "calendar" && currentRole === "coach"
+        ? ["Fixtures & Events","Training, matches and other events for your age groups."]
+        : (headers[seasonPlannerPage]||headers.home);
     const title=document.getElementById("spPageTitle");
     const description=document.getElementById("spPageDescription");
     const back=document.getElementById("spHeaderBack");
