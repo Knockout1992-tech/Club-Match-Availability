@@ -82,7 +82,7 @@ async function showCoachSeasonPlanner() {
     if (!spCoachOrSenior()) return;
     seasonPlannerPage = "calendar";
     seasonPlannerAgeFilter = "all";
-    renderShell('<div class="card season-planner-shell"><button id="spHeaderBack" class="back-button" onclick="showCoachDashboard()">← Back to Dashboard</button><h2 id="spPageTitle">Season Calendar</h2><div id="spPageDescription" class="subtitle">Events for '+spEsc(selectedAgeGroups.join(" + "))+' and club-wide events.</div><div id="seasonPlannerContent">Loading...</div></div>');
+    renderShell('<div class="card season-planner-shell"><button id="spHeaderBack" class="back-button" onclick="showCoachDashboard()">← Back to Dashboard</button><h2 id="spPageTitle">Fixtures &amp; Events</h2><div id="spPageDescription" class="subtitle">Events for '+spEsc(selectedAgeGroups.join(" + "))+' and club-wide events.</div><div id="seasonPlannerContent">Loading...</div></div>');
     await loadCoachSeasonPlanner();
 }
 
