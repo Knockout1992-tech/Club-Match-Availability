@@ -51,6 +51,7 @@ async function enableCoachNotifications() {
         }
 
         await coachPushRequest("subscribe", subscription.toJSON());
+        await refreshCoachNotificationButton();
         await appAlert("This device is now set up to receive Coach notifications.", "Notifications enabled", "success");
     } catch (error) {
         console.error("Enable Coach notifications failed:", error);
@@ -65,6 +66,7 @@ async function disableCoachNotifications() {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) await subscription.unsubscribe();
+        await refreshCoachNotificationButton();
         await appAlert("Notifications have been disabled on this device.", "Notifications disabled", "success");
     } catch (error) {
         console.error("Disable Coach notifications failed:", error);
@@ -93,4 +95,60 @@ async function showCoachNotificationSettings() {
         "Coach notifications"
     );
     if (choice) await disableCoachNotifications();
+    await refreshCoachNotificationButton();
+}
+
+async function refreshCoachNotificationButton() {
+    const button = document.getElementById("coachNotificationToggle");
+    if (!button) return;
+    const state = button.querySelector("[data-notification-state]");
+    if (!state) return;
+    let enabled = false;
+    try {
+        if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window && Notification.permission === "granted") {
+            const registration = await navigator.serviceWorker.ready;
+            enabled = !!(await registration.pushManager.getSubscription());
+        }
+    } catch (error) { console.warn("Could not read notification status:", error); }
+    button.dataset.state = enabled ? "on" : "off";
+    state.textContent = enabled ? "ON" : "OFF";
+    button.setAttribute("aria-label", "Coach notifications " + (enabled ? "on" : "off"));
+}
+
+async function openPendingCoachNotification() {
+    if (currentRole !== "coach" || !currentAccessPIN) return;
+    let target = null;
+    try {
+        target = JSON.parse(sessionStorage.getItem("pendingCoachNotification") || "null");
+        sessionStorage.removeItem("pendingCoachNotification");
+    } catch (_) {}
+    if (!target || !Number.isInteger(Number(target.id)) || Number(target.id) <= 0) return;
+    try {
+        await showCoachSeasonPlanner();
+        const eventId = Number(target.id);
+        const matching = (seasonPlannerData?.events || []).find(event =>
+            target.source === "season_planner"
+                ? Number(event.id) === eventId
+                : Number(event.linked_fixture_id) === eventId
+        );
+        if (matching) {
+            seasonPlannerShowPast = true;
+            seasonPlannerAgeFilter = "all";
+            renderSeasonPlanner();
+            requestAnimationFrame(() => {
+                const row = document.querySelector('[data-event-ids~="' + Number(matching.id) + '"]');
+                if (row) {
+                    row.classList.add("coach-notification-highlight");
+                    row.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            });
+        } else if (target.source === "match_fixture") {
+            await appAlert("This fixture is not part of the Season Calendar. Please check the Match Availability area for its details.", "Fixture notification", "info");
+        } else {
+            await appAlert("This event is no longer available in your assigned Coach calendar.", "Event unavailable", "warning");
+        }
+    } catch (error) {
+        console.error("Could not open notification destination:", error);
+        await appAlert("The notification was opened, but its event could not be loaded. Please open the Season Calendar.", "Event unavailable", "warning");
+    }
 }

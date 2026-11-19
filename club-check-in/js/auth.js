@@ -411,6 +411,7 @@ async function completePersonalLogin(data, authMethod = "pin") {
     if (currentRole === "coach") {
         currentAgeGroup = selectedAgeGroups[0] || null;
         await showCoachDashboard();
+        await openPendingCoachNotification();
     } else {
         await showSeniorDashboard();
     }
