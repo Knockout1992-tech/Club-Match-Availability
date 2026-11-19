@@ -195,6 +195,27 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
       }, 401);
     }
 
+    // Coach operations require an individual authenticated session.
+    // The shared Coach PIN is only for first-time personal PIN setup.
+    let authenticatedPersonId = personId;
+    if (requestedRole === "coach") {
+      if (!/^[0-9a-f]{64}$/.test(suppliedCode)) {
+        return response({ error: "Please sign in with your personal Coach PIN before continuing" }, 401);
+      }
+      const { data: sessionPersonId, error: sessionError } = await supabase.rpc(
+        "get_authenticated_person_id",
+        {
+          supplied_credential: suppliedCode,
+          required_access_role: "coach",
+          supplied_installation_id: installationId.trim(),
+        },
+      );
+      if (sessionError || !sessionPersonId) {
+        return response({ error: "Your Coach session is no longer valid. Please sign in again." }, 401);
+      }
+      authenticatedPersonId = sessionPersonId;
+    }
+
     // Coach permissions come only from server-side assignments.
     let authorisedAgeGroupNames: string[] = [];
     let authorisedAgeGroupIDs: number[] = [];
@@ -202,7 +223,7 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
       const { data: assignments, error: assignmentsError } = await supabase
         .from("user_age_group_assignments")
         .select("age_group_id")
-        .eq("person_id", personId);
+        .eq("person_id", authenticatedPersonId);
       if (assignmentsError) {
         console.error("Coach age-group lookup failed:", assignmentsError.message);
         return response({ error: "Unable to verify Coach age-group access" }, 500);
