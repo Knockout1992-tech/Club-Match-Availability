@@ -289,33 +289,7 @@ function spGroupCalendarEvents(events){
         const notes=[...new Set(items.map(e=>(e.notes||"").trim()).filter(Boolean))];
         return {items,event:items[0],ageLabel:all?"All age groups":names.join(" · "),multiple:items.length>1,notes:notes.length===1?notes[0]:""};
     });
-    const holidayGroups=new Map(),otherGroups=[];
-    groups.forEach(group=>{
-        if(group.event.event_type!=="holiday"){otherGroups.push(group);return;}
-        const key=spEventGroupKey({...group.event,event_date:""});
-        if(!holidayGroups.has(key))holidayGroups.set(key,[]);
-        holidayGroups.get(key).push(group);
-    });
-    holidayGroups.forEach(periods=>{
-        periods.sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date));
-        let current=null,previousDate=null;
-        periods.forEach(group=>{
-            const date=new Date(group.event.event_date+"T12:00:00Z");
-            const previous=previousDate?new Date(previousDate+"T12:00:00Z"):null;
-            const dayGap=previous?Math.round((date-previous)/86400000):null;
-            if(!current||![1,7].includes(dayGap)){
-                if(current)otherGroups.push(current);
-                current={...group,holidayDates:[group.event.event_date]};
-            }else{
-                current.items=current.items.concat(group.items);
-                current.holidayDates.push(group.event.event_date);
-                current.multiple=true;
-            }
-            previousDate=group.event.event_date;
-        });
-        if(current)otherGroups.push(current);
-    });
-    return otherGroups.sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date)||String(a.event.start_time||"").localeCompare(String(b.event.start_time||"")));
+    return groups.sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date)||String(a.event.start_time||"").localeCompare(String(b.event.start_time||"")));
 }
 function spRenderCalendar(){
     const groups=seasonPlannerData.age_groups,grouped=spGetCalendarGroups();
