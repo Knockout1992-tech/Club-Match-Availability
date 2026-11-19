@@ -185,7 +185,7 @@ async function syncCurrentSeasonEvents(supabase: any, today: string, selectedAge
       event.venue ?? "", event.notes ?? "", event.availability_enabled === true ? "on" : "off",
     ].join("|");
     if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(event);
+    grouped.get(key)!.push(event);
   }
 
   const syncedFixtureLinks: { fixture_id: number; event_ids: number[] }[] = [];
@@ -206,7 +206,9 @@ async function syncCurrentSeasonEvents(supabase: any, today: string, selectedAge
     if (linkReadError) throw new Error("Unable to read event links: " + linkReadError.message);
 
     let fixtureId = links?.[0]?.fixture_id ?? null;
-    const duplicateFixtureIds = [...new Set((links ?? []).map((x: any) => Number(x.fixture_id)))].filter((id: number) => id !== Number(fixtureId));
+    const duplicateFixtureIds: number[] = Array.from(
+      new Set<number>((links ?? []).map((x: any) => Number(x.fixture_id)))
+    ).filter((id) => id !== Number(fixtureId));
     if (duplicateFixtureIds.length) {
       const { error: duplicateCloseError } = await supabase.from("match_fixtures")
         .update({ status: "closed" }).in("id", duplicateFixtureIds).in("status", ["draft", "open"]);
@@ -364,8 +366,14 @@ Deno.serve(async (req) => {
     const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 
     const parentAccess = await authenticateParent(supabase, parentName, parentPin, true);
-    if (!parentAccess.ok) return response({ error: parentAccess.error }, parentAccess.status);
-    const parentAccountId = Number(parentAccess.account?.id);
+    if (!parentAccess.ok) {
+      const failure = parentAccess as { error: string; status: number };
+      return response({ error: failure.error }, failure.status);
+    }
+    if (!("account" in parentAccess) || !parentAccess.account) {
+      return response({ error: "Unable to verify parent access" }, 401);
+    }
+    const parentAccountId = Number(parentAccess.account.id);
     const { data: familyMembership, error: familyMembershipError } = await supabase
       .from("match_parent_family_members").select("family_id").eq("parent_access_id", parentAccountId).maybeSingle();
     if (familyMembershipError) return response({ error: "Unable to load family access" }, 500);
@@ -477,7 +485,7 @@ Deno.serve(async (req) => {
     }
     const calendarFixtureIds = new Set((linkedFixtureRows ?? []).map((x: any) => Number(x.fixture_id)));
 
-    const resultFixtures = [];
+    const resultFixtures: any[] = [];
     for (const fixture of upcoming) {
       let fixtureToken: string | null = null;
       try {
@@ -546,7 +554,7 @@ Deno.serve(async (req) => {
         event.venue ?? "", event.notes ?? "", event.availability_enabled === true ? "on" : "off",
       ].join("|");
       if (!eventGroups.has(key)) eventGroups.set(key, []);
-      eventGroups.get(key).push(event);
+      eventGroups.get(key)!.push(event);
     }
     const calendarEvents = [...eventGroups.values()].map((items: any[]) => {
       const first = items[0];
