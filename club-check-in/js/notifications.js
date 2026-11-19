@@ -4,6 +4,51 @@
 
 const COACH_PUSH_VAPID_PUBLIC_KEY = "BNHfhKxifkbC1pa8rGkaBT7FWsTsQe5Z4DGaH4XWWOdG_UgDkp_iGlvA9Zd_Q21yuKnyG2jGPUzfxG5uP78Qz_Q";
 
+
+function storeCoachNotificationTarget(source, id) {
+    const numericId = Number(id);
+    if (numericId > 0 && Number.isInteger(numericId) && ["season_planner", "match_fixture"].includes(source)) {
+        sessionStorage.setItem("pendingCoachNotification", JSON.stringify({ source, id: numericId }));
+        return true;
+    }
+    return false;
+}
+
+(function captureCoachNotificationTarget() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("notification") === "1") {
+            storeCoachNotificationTarget(params.get("source") || "", params.get("id"));
+            params.delete("notification");
+            params.delete("source");
+            params.delete("id");
+            const query = params.toString();
+            history.replaceState(null, "", window.location.pathname + (query ? "?" + query : "") + window.location.hash);
+        }
+    } catch (error) {
+        console.warn("Could not preserve notification destination:", error);
+    }
+})();
+
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", event => {
+        if (event.data?.type !== "COACH_NOTIFICATION_OPEN") return;
+        try {
+            const url = new URL(event.data.url, window.location.href);
+            const appPath = new URL("./", window.location.href).pathname;
+            if (url.origin !== window.location.origin || !url.pathname.startsWith(appPath)) return;
+            if (!storeCoachNotificationTarget(url.searchParams.get("source") || "", url.searchParams.get("id"))) return;
+            if (currentRole === "coach" && currentAccessPIN) {
+                openPendingCoachNotification();
+            } else if (currentPersonID) {
+                showWelcome();
+            }
+        } catch (error) {
+            console.warn("Could not process notification click:", error);
+        }
+    });
+}
+
 function coachPushBase64UrlToBytes(value) {
     const padded = value + "=".repeat((4 - value.length % 4) % 4);
     const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
@@ -133,6 +178,7 @@ async function openPendingCoachNotification() {
         );
         if (matching) {
             seasonPlannerShowPast = true;
+            seasonPlannerShowCancelled = true;
             seasonPlannerAgeFilter = "all";
             renderSeasonPlanner();
             requestAnimationFrame(() => {
