@@ -195,6 +195,33 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
       }, 401);
     }
 
+    // Coach permissions come only from server-side assignments.
+    let authorisedAgeGroupNames: string[] = [];
+    let authorisedAgeGroupIDs: number[] = [];
+    if (requestedRole === "coach") {
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("user_age_group_assignments")
+        .select("age_group_id")
+        .eq("person_id", personId);
+      if (assignmentsError) {
+        console.error("Coach age-group lookup failed:", assignmentsError.message);
+        return response({ error: "Unable to verify Coach age-group access" }, 500);
+      }
+      authorisedAgeGroupIDs = [...new Set((assignments ?? []).map((item: any) => Number(item.age_group_id)))];
+      if (authorisedAgeGroupIDs.length === 0) {
+        return response({ error: "No age groups are assigned to this Coach account" }, 403);
+      }
+      const { data: assignedGroups, error: assignedGroupsError } = await supabase
+        .from("age_groups")
+        .select("id, age_group, display_name")
+        .eq("active", true)
+        .in("id", authorisedAgeGroupIDs);
+      if (assignedGroupsError) {
+        return response({ error: "Unable to verify Coach age-group access" }, 500);
+      }
+      authorisedAgeGroupNames = (assignedGroups ?? []).flatMap((group: any) => [group.display_name, group.age_group]);
+    }
+
     // UPDATE OR CANCEL A FIXTURE
     // =====================================================
 
@@ -237,7 +264,7 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
 
         const hasPermittedGroup = (fixtureGroups ?? []).some((item: any) => {
           const group = item.age_groups;
-          return group && (selectedAgeGroups.includes(group.display_name) || selectedAgeGroups.includes(group.age_group));
+          return group && (authorisedAgeGroupNames.includes(group.display_name) || authorisedAgeGroupNames.includes(group.age_group));
         });
 
         if (!hasPermittedGroup) {
@@ -328,7 +355,7 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
         const permittedChanges = new Set(
           (validGroups ?? [])
             .filter((group: any) =>
-              (selectedAgeGroups.includes(group.display_name) || selectedAgeGroups.includes(group.age_group))
+              (authorisedAgeGroupNames.includes(group.display_name) || authorisedAgeGroupNames.includes(group.age_group))
             )
             .map((group: any) => Number(group.id))
         );
@@ -428,18 +455,11 @@ const suppliedCode = requestedRole === "coach" ? coachCode : seniorCode;
 
     let selectedAgeGroupIDs: number[] = [];
     if (requestedRole === "coach") {
-      if (!Array.isArray(selectedAgeGroups) || selectedAgeGroups.length === 0 ||
-          selectedAgeGroups.some((name: any) => typeof name !== "string")) {
-        return response({ error: "Select your age groups before opening the calendar" }, 403);
-      }
-      selectedAgeGroupIDs = (availableAgeGroups ?? [])
-        .filter((group: any) =>
-          selectedAgeGroups.includes(group.display_name) ||
-          selectedAgeGroups.includes(group.age_group)
-        )
-        .map((group: any) => Number(group.id));
-      if (selectedAgeGroupIDs.length !== new Set(selectedAgeGroups).size) {
-        return response({ error: "One or more selected age groups are no longer active" }, 403);
+      selectedAgeGroupIDs = authorisedAgeGroupIDs.filter((id) =>
+        (availableAgeGroups ?? []).some((group: any) => Number(group.id) === id)
+      );
+      if (selectedAgeGroupIDs.length === 0) {
+        return response({ error: "No active age groups are assigned to this Coach account" }, 403);
       }
     }
 
