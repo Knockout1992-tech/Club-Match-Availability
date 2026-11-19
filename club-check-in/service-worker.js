@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "club-check-in-v1170-notification-deep-links";
+const CACHE_NAME = "club-check-in-v1171-notification-deep-links";
 
 const APP_SHELL = [
     "./",
