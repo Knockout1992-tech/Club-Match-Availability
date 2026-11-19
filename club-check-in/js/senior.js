@@ -414,7 +414,7 @@ function showAddCoach() {
 
             <button class="back-button"
                 onclick="showUserManagement()">
-                ← User Management
+                ← Back to User Management
             </button>
 
             <h2>Add Coach</h2>
@@ -522,7 +522,7 @@ async function showChangeUserName(personID) {
 
             <button class="back-button"
                 onclick="showUserManagement()">
-                ← User Management
+                ← Back to User Management
             </button>
 
             <h2>Change Name</h2>
@@ -2238,7 +2238,7 @@ async function showAttendanceInsights() {
 
     renderShell(`
         <div class="card attendance-insights-page">
-            <button class="back-button" onclick="showSeniorDashboard()">← Admin Dashboard</button>
+            <button class="back-button" onclick="showSeniorDashboard()">← Back to Dashboard</button>
             <div class="attendance-insights-heading">
                 <div>
                     <div class="attendance-insights-eyebrow">CLUB PERFORMANCE</div>
