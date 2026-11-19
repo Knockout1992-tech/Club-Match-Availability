@@ -2087,11 +2087,13 @@ async function showAttendanceInsights() {
     if (!host) return;
 
     try {
-        const { data, error } = await supabaseClient
-            .from("attendance_history")
-            .select("register_date, age_group, total_players, present_count, absent_count")
-            .gte("register_date", "2026-11-01")
-            .order("register_date", { ascending: true });
+        const { data, error } = await supabaseClient.rpc(
+            "get_attendance_insights",
+            {
+                supplied_code: currentSeniorPIN,
+                from_date: "2026-11-01"
+            }
+        );
         if (error) throw error;
         if (!Array.isArray(data) || !data.length) {
             host.innerHTML = '<div class="info-box">There is no saved attendance history from November 2026 onwards yet.</div>';
