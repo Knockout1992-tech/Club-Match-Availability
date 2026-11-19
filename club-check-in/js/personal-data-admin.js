@@ -26,8 +26,9 @@ function pdmTodayLocal() {
 }
 function pdmIsClosed(request) {
     if (!request) return false;
-    if (request.status === "withdrawn") return true;
-    return ["completed", "partially_completed", "refused"].includes(request.status) && !!request.sent_at;
+    if (request.status === "withdrawn") return !!(request.closed_at || request.completed_at || request.updated_at);
+    return ["completed", "partially_completed", "refused"].includes(request.status) &&
+        !!(request.closed_at || request.completed_at || request.sent_at);
 }
 function pdmDeadlineLabel(request) {
     if (!request?.clock_started_at && ["awaiting_identity", "awaiting_authority"].includes(request?.status)) {
@@ -68,7 +69,7 @@ function renderPersonalDataManagement() {
     renderShell('<div class="card retention-admin pdm-page">'+
       '<button class="back-button" onclick="showRetentionAdmin()">← System Admin</button>'+
       '<h2>Personal Data Management</h2><div class="subtitle">Manage data protection requests across Club Check-In and the Parent Portal.</div>'+
-      '<div class="info-box"><strong>Handle every request carefully.</strong><br>Verify identity and parental/representative authority, record the original receipt date, check applicable exceptions and retention holds, and treat the displayed date as an operational reminder rather than a legal deadline calculation. Record any clarification requests and correspondence in the case history, and separately check the statutory deadline against current ICO guidance. This screen does not pause or recalculate the legal clock. Do not store copies of identity documents here; record the verification outcome only. The club must approve a retention period for request case records.</div>'+
+      '<div class="info-box"><strong>Handle every request carefully.</strong><br>Verify identity and parental/representative authority, record the original receipt date, check applicable exceptions and retention holds, and treat the displayed date as an operational reminder rather than a legal deadline calculation. Record any clarification requests and correspondence in the case history, and separately check the statutory deadline against current ICO guidance. This screen does not pause or recalculate the legal clock. Do not store copies of identity documents here; record the verification outcome only. Closed request cases are set to anonymise after the configured retention period. Identifying details and free-text notes are removed; a minimal non-identifying handling record is retained. Active retention holds and open requests are excluded.</div>'+
       '<section class="pdm-section"><h3>Find a parent or child</h3><div class="pdm-search"><input id="pdmSearchTerm" type="search" aria-label="Search parents or children" placeholder="Enter at least 2 characters"><button class="primary-button" onclick="pdmSearch()">Search</button></div><div id="pdmSearchResults"></div></section>'+
       '<section class="pdm-section"><div class="pdm-list-heading"><h3>Requests</h3><button class="secondary-button small-button" onclick="showPersonalDataManagement()">Refresh</button></div>'+
       '<div class="pdm-filter" role="group" aria-label="Filter requests"><button type="button" class="'+(pdmRequestFilter==="open"?"active":"")+'" aria-pressed="'+(pdmRequestFilter==="open"?"true":"false")+'" onclick="pdmSetRequestFilter(\'open\')">Open · '+openRequests.length+'</button><button type="button" class="'+(pdmRequestFilter==="closed"?"active":"")+'" aria-pressed="'+(pdmRequestFilter==="closed"?"true":"false")+'" onclick="pdmSetRequestFilter(\'closed\')">Closed · '+closedRequests.length+'</button></div>'+

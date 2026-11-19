@@ -154,7 +154,8 @@ function retentionPolicyDescription(p) {
     if(/cancel/.test(key)) return "Keep responses for cancelled matches for the period shown, then remove those responses";
     if(/invitation|invite/.test(key)) return "Remove an invitation after it has been accepted, cancelled or expired";
     if(/availability|match.response/.test(key)) return "Keep match availability responses for the period shown after the fixture date, then remove the responses";
-    if(/parent|family|account.link/.test(key)) return "Automatically remove parent accounts and family links after the configured period without meaningful activity. Successful availability updates and family-sharing changes reset the activity clock; sign-in and failed PIN attempts do not.";
+    if(/parent|family|account.link/.test(key)) return "After the configured inactivity period, disable parent accounts for the review period shown. Accounts are only deleted after that review period, with active holds and family-sharing safeguards respected. Successful availability updates and family-sharing changes reset the activity clock; sign-in and failed PIN attempts do not.";
+    if(/pdm_case_records/.test(key)) return "Anonymise identifying case details after the configured period from closure. Keep a minimal non-identifying record of the request and its handling; open cases and active holds are excluded.";
     if(/parent_portal_security_audit/.test(key)) return "Keep Parent Portal security and access audit events for the configured period, then automatically delete them. PINs, PIN hashes and authentication tokens must never be recorded.";
     if(/security|audit|log/.test(key)) return "Keep club security records for the period shown, then remove them. Supplier-held records follow the supplier's own settings";
     if(action==="anonymise") return "Remove personal details after the period shown while keeping the remaining record";
@@ -182,7 +183,10 @@ function renderRetentionRunSummary(summary,mode) {
         ["Invitation tokens","invitation_rows_checked"],
         ["Security logs","security_logs_checked"],
         ["Parent Portal security & access audit","parent_portal_security_audit_checked"],
-        ["Inactive parent accounts","inactive_parent_accounts_checked"],
+        ["Parent accounts entering review","parent_accounts_for_review"],
+        ["Parent accounts disabled for review","parent_accounts_disabled_for_review"],
+        ["Parent accounts due for deletion","inactive_parent_accounts_checked"],
+        ["Personal data request cases due for anonymisation","pdm_case_records_checked"],
         ["Archived player records","archived_players_eligible"]
     ];
     const rows=categories.map(([label,key])=>{
@@ -253,12 +257,14 @@ function showRetentionAdmin() {
         const key=escapeHTML(p.policy_key);
         const amount=Number(p.retention_value)||0;
         const isInvitation=/invitation|invite/i.test(String(p.policy_key||"")+" "+String(p.record_type||""));
+        const isParentFamily=String(p.policy_key||"")==="parent_family_links";
         const unit=String(p.retention_unit||"").replace(/s$/,"")+(amount===1?"":"s");
         const manual=String(p.action||"").toLowerCase()==="review"&&!/archiv|parent|family/i.test(String(p.policy_key||"")+" "+String(p.record_type||""));
         return '<details class="retention-policy admin-policy-item"><summary class="retention-policy-title"><strong>'+escapeHTML(p.record_type||retentionHumanLabel(p.policy_key))+'</strong><span class="retention-status '+(manual?"":p.enforcement_enabled?"is-on":"")+'">'+(manual?"Manual review only":p.enforcement_enabled?"Automatic removal ON":"Automatic removal OFF")+'</span></summary>'+
         '<p class="retention-description">'+escapeHTML(retentionPolicyDescription(p))+'</p>'+
         (manual?'<p class="retention-manual-note">No retention period has been approved. Keep under manual review; automatic deletion and anonymisation are unavailable until a documented period is approved and configured.</p>':
           (isInvitation?'<div class="retention-period-line"><strong>Keep until:</strong><span class="retention-unit">Accepted, revoked/cancelled or expired</span></div>':'<div class="retention-period-line"><label for="retention-value-'+key+'">Keep for</label><input type="number" min="0" max="120" step="1" id="retention-value-'+key+'" value="'+amount+'"><span class="retention-unit">'+escapeHTML(unit)+'</span></div>')+
+          (isParentFamily?'<div class="retention-period-line"><label for="retention-review-months">Additional review period</label><input type="number" min="1" max="24" step="1" id="retention-review-months" value="'+Number(p.review_period_months||3)+'"><span class="retention-unit">months before deletion</span></div>':'')+
           '<label class="retention-active"><input type="checkbox" id="retention-enabled-'+key+'" '+(p.enabled?"checked":"")+'><span>This rule is active</span></label>'+
           '<div class="retention-actions"><button class="secondary-button small-button" onclick="saveRetentionPolicy(\''+key+'\')">Save changes</button><button class="'+(p.enforcement_enabled?"red-button":"secondary-button")+' small-button" onclick="toggleRetentionEnforcement(\''+key+'\','+(!p.enforcement_enabled)+')">'+(p.enforcement_enabled?"Turn automatic removal OFF":"Turn automatic removal ON")+'</button></div>'+
           (/archiv|parent|family/i.test(String(p.policy_key||"")+" "+String(p.record_type||""))?'<p class="retention-manual-note">Automatic processing runs daily at 03:15 UTC when enforcement is enabled.</p>':""))+'</details>';
@@ -281,6 +287,7 @@ function retentionHoldTargetOptions() {
         ["security_logs","installation_access_attempts","Installation security log (all events for installation)"],
         ["parent_portal_security_audit","system_admin_audit_log","Parent Portal security audit event"],
         ["parent_family_links","match_parent_access","Parent account"],
+        ["pdm_case_records","personal_data_requests","Personal data request case"],
         ["archived_players","players","Archived player"]
     ];
 }
@@ -357,9 +364,20 @@ async function saveRetentionPolicy(key) {
     const valueInput=document.getElementById("retention-value-"+key);
     const value=valueInput?Number(valueInput.value):Number(policy.retention_value)||0;
     const enabled=document.getElementById("retention-enabled-"+key).checked;
+    const reviewInput=key==="parent_family_links"?document.getElementById("retention-review-months"):null;
+    const reviewMonths=reviewInput?Number(reviewInput.value):null;
     if(valueInput&&(!Number.isInteger(value)||value<0||value>120)){await appAlert("Enter a whole number from 0 to 120","Check the retention period","warning");return;}
+    if(reviewInput&&(!Number.isInteger(reviewMonths)||reviewMonths<1||reviewMonths>24)){await appAlert("Enter a review period from 1 to 24 months","Check the review period","warning");return;}
     const {data,error}=await supabaseClient.rpc("update_retention_policy",{system_admin_pin:currentSystemAdminPIN,requested_policy_key:key,requested_retention_value:value,requested_retention_unit:policy.retention_unit,requested_enabled:enabled});
     if(error || data === null){await appAlert(error?.message || "System Admin verification failed. Please sign in again.","Unable to save rule","danger");closeSystemAdmin();return;}
+    if(reviewInput){
+      const reviewResult=await supabaseClient.rpc("update_parent_retention_review_period",{system_admin_pin:currentSystemAdminPIN,requested_review_period_months:reviewMonths});
+      if(reviewResult.error||!reviewResult.data?.success){
+        await refreshRetentionAdmin();
+        await appAlert(reviewResult.error?.message||"The inactivity rule was saved, but the review period could not be updated. Please check it and retry.","Review period not saved","warning");
+        return;
+      }
+    }
     await refreshRetentionAdmin("Rule saved successfully");
 }
 async function toggleRetentionEnforcement(key, enabled) {

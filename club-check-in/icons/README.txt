@@ -1,0 +1,1 @@
+Club Check-In PWA icons will be stored in this folder.

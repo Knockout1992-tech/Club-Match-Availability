@@ -48,8 +48,8 @@
 <script src="js/players.js"></script>
 <script src="js/attendance.js"></script>
 <script src="js/senior.js"></script>
-<script src="js/retention-admin.js?v=system-admin-layout-3"></script>
-<script src="js/personal-data-admin.js?v=personal-data-3"></script>
+<script src="js/retention-admin.js?v=system-admin-retention-4"></script>
+<script src="js/personal-data-admin.js?v=personal-data-retention-4"></script>
 <script src="js/season-planner.js?v=coach-calendar-8"></script>
 <script src="js/seasons.js"></script>
 <script src="js/shell.js"></script>
@@ -290,7 +290,7 @@ async function showCoachDashboard() {
         ? selectedAgeGroups
         : [currentAgeGroup];
 
-    // Back always returns to the login screen and ends the current session.
+    // Back returns the signed-in coach to their assigned age-group selection.
     const showAdminDashboardButton =
         currentPersonID && currentUserRoles.includes("admin");
 
@@ -472,6 +472,12 @@ async function showCoachDashboard() {
     Season<br>Calendar
 </button>
 
+                <button
+                    class="menu-button blue"
+                    onclick="showMatchAvailabilityAdmin()">
+                    Match<br>Availability
+                </button>
+
             </div>
 
         </div>
@@ -570,7 +576,14 @@ async function loadDashboardUpcoming(hostId, role, groups) {
         copy.append(eyebrow, title, meta);
 
         // Availability is shown inside the same Up Next card, never as a separate panel.
-        if (first.availability_enabled === true && first.linked_fixture_id) {
+        // The dashboard may have changed role or logged out while the
+        // season-planner request was in flight. Do not make a fixture request
+        // with a session that has since been revoked.
+        const sessionStillActive =
+            currentRole === role &&
+            (role === "senior" ? !!currentSeniorPIN : !!currentAccessPIN);
+
+        if (sessionStillActive && first.availability_enabled === true && first.linked_fixture_id) {
             try {
                 const fixtureData = await matchAdminCall("admin_fixtures", { action: "list" });
                 const fixture = (fixtureData.fixtures || []).find(item =>
@@ -2052,6 +2065,12 @@ function showSeniorDashboard() {
                     class="menu-button blue"
                     onclick="showSeasonPlanner()">
                     Season<br>Planner
+                </button>
+
+                <button
+                    class="menu-button blue"
+                    onclick="showMatchAvailabilityAdmin()">
+                    Match<br>Availability
                 </button>
  
             </div>

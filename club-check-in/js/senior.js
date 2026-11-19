@@ -715,47 +715,11 @@ let matchFixtureRefreshBusy = false;
 let matchAdminAgeGroups = [];
 let latestCreatedFixtureLink = null;
 
-// The parent portal is hosted at the root of this Cloudflare Pages site.
-const MATCH_AVAILABILITY_URL = window.location.origin + "/";
-const PARENT_PORTAL_URL = MATCH_AVAILABILITY_URL;
+const MATCH_AVAILABILITY_URL =
+    "https://rhrufc-mini.pages.dev/";
 
-// Clipboard API is not available in every installed-browser context.
-// Fall back to a temporary textarea when necessary.
-async function copyMatchLinkToClipboard(value) {
-    const text = String(value || "");
-
-    if (!text) throw new Error("There is no link to copy.");
-
-    if (navigator.clipboard && window.isSecureContext) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return;
-        } catch (error) {
-            console.warn("Clipboard API unavailable; trying fallback:", error);
-        }
-    }
-
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    textarea.style.pointerEvents = "none";
-    document.body.appendChild(textarea);
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-
-    let copied = false;
-    try {
-        copied = document.execCommand("copy");
-    } finally {
-        textarea.remove();
-    }
-
-    if (!copied) {
-        throw new Error("Your device did not allow the link to be copied.");
-    }
-}
+const PARENT_PORTAL_URL =
+    "https://rhrufc-mini.pages.dev/";
 
 
 function matchAdminEscape(value) {
@@ -828,6 +792,10 @@ async function matchAdminCall(functionName, body) {
             if (responseBody?.error) message = responseBody.error;
         } catch (_) {
             // Keep the original error message if no response body is available.
+        }
+
+        if (error.context?.status === 401) {
+            message = "Your sign-in session is no longer valid. Please log out and sign in again.";
         }
 
         throw new Error(message);
@@ -1473,9 +1441,47 @@ async function createMatchFixtureFromForm() {
 // COPY PARENT LINK
 // =========================================================
 
+async function copyTextToClipboard(value) {
+    const text = String(value ?? "");
+
+    // Use the modern clipboard API when the browser permits it.
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch (error) {
+            console.warn("Clipboard API unavailable; trying compatibility fallback.", error);
+        }
+    }
+
+    // Fallback for installed PWAs and mobile browsers that block clipboard.writeText.
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "-9999px";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+        copied = document.execCommand("copy");
+    } finally {
+        document.body.removeChild(textarea);
+    }
+
+    if (!copied) {
+        throw new Error("This browser could not copy the link. Please copy it manually.");
+    }
+}
+
 async function copyLatestCentralParentLink() {
     try {
-        await copyMatchLinkToClipboard(PARENT_PORTAL_URL);
+        await copyTextToClipboard(PARENT_PORTAL_URL);
         await appAlert("The central parent home link has been copied.", "Link copied", "success");
     } catch (error) {
         console.error("Copy central link failed:", error);
@@ -1489,7 +1495,7 @@ async function copyLatestMatchFixtureLink() {
         return;
     }
     try {
-        await copyMatchLinkToClipboard(latestCreatedFixtureLink);
+        await copyTextToClipboard(latestCreatedFixtureLink);
         await appAlert("The direct link for this fixture has been copied.", "Fixture link copied", "success");
     } catch (error) {
         console.error("Copy fixture link failed:", error);
@@ -2061,7 +2067,7 @@ async function returnToMatchAdminFixtures() {
 
 async function copyCentralMatchParentLink() {
     try {
-        await copyMatchLinkToClipboard(MATCH_AVAILABILITY_URL);
+        await copyTextToClipboard(MATCH_AVAILABILITY_URL);
         await appAlert("The central parent home link has been copied.", "Link copied", "success");
     } catch (error) {
         console.error("Unable to copy central parent link:", error);
@@ -2083,7 +2089,7 @@ async function copyMatchFixtureLink(fixtureId, parentToken = null) {
             return;
         }
         const fixtureLink = MATCH_AVAILABILITY_URL + "?fixture=" + encodeURIComponent(parentToken);
-        await copyMatchLinkToClipboard(fixtureLink);
+        await copyTextToClipboard(fixtureLink);
         await appAlert("The direct parent link for this fixture has been copied.", "Fixture link copied", "success");
     } catch (error) {
         console.error("Unable to copy individual fixture link:", error);
