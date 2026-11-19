@@ -269,64 +269,6 @@ const requestedRole = hasCoachCode ? "coach" : "senior";
       ...(action === "update_availability" ? { availability } : {}),
     });
 
-    if (action === "update_availability") {
-      const { data: updatedChild, error: updateError } =
-        await supabase
-          .from("match_availability")
-          .select("id, availability")
-          .eq("id", childId)
-          .maybeSingle();
-
-      if (updateError || !updatedChild) {
-        console.error(
-          "Availability update failed:",
-          updateError?.message,
-        );
-
-        return response({
-          error: "Unable to update availability",
-        }, 500);
-      }
-
-      return response({
-        success: true,
-        action: "update_availability",
-        child_id: updatedChild.id,
-        availability: updatedChild.availability,
-      });
-    }
-
-    // =====================================================
-    // DELETE POTENTIAL DUPLICATE
-    // =====================================================
-
-    if (action === "delete_duplicate") {
-      const { data: deletedChild, error: deleteError } =
-        await supabase
-          .from("match_availability")
-          .delete()
-          .eq("id", childId)
-          .select("id")
-          .maybeSingle();
-
-      if (deleteError || !deletedChild) {
-        console.error(
-          "Duplicate deletion failed:",
-          deleteError?.message,
-        );
-
-        return response({
-          error: "Unable to delete duplicate entry",
-        }, 500);
-      }
-
-      return response({
-        success: true,
-        action: "delete_duplicate",
-        child_id: deletedChild.id,
-      });
-    }
-
     return response({ error: "Unsupported action" }, 400);
 
   } catch (error) {
