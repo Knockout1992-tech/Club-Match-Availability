@@ -134,6 +134,22 @@ const requestedRole = hasCoachCode ? "coach" : "senior";
       }, 401);
     }
 
+    let authorisedAgeGroupIDs: number[] = [];
+    if (requestedRole === "coach") {
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("user_age_group_assignments")
+        .select("age_group_id")
+        .eq("person_id", personId);
+      if (assignmentsError) {
+        console.error("Coach age-group lookup failed:", assignmentsError.message);
+        return response({ error: "Unable to verify Coach age-group access" }, 500);
+      }
+      authorisedAgeGroupIDs = [...new Set((assignments ?? []).map((item: any) => Number(item.age_group_id)))];
+      if (authorisedAgeGroupIDs.length === 0) {
+        return response({ error: "No age groups are assigned to this Coach account" }, 403);
+      }
+    }
+
     // FIND CHILD
     // =====================================================
 
@@ -153,33 +169,14 @@ const requestedRole = hasCoachCode ? "coach" : "senior";
       return response({ error: "Child entry not found" }, 404);
     }
 
-    if (requestedRole === "coach") {
-      if (!Array.isArray(selectedAgeGroups) || selectedAgeGroups.length === 0 ||
-          selectedAgeGroups.some((name: any) => typeof name !== "string")) {
-        await writeSecurityAudit(supabase, "child_response_management_access", "denied", "warning", installationId.trim(), {
-          reason: "coach_age_groups_missing",
-          role: requestedRole,
-        });
-        return response({ error: "Select your age groups before managing responses" }, 403);
-      }
-      const { data: permittedGroups, error: permittedGroupsError } = await supabase
-        .from("age_groups")
-        .select("id, age_group, display_name")
-        .eq("active", true);
-      if (permittedGroupsError) {
-        return response({ error: "Unable to verify your age group access" }, 500);
-      }
-      const permittedIDs = (permittedGroups ?? [])
-        .filter((group: any) => (selectedAgeGroups.includes(group.display_name) || selectedAgeGroups.includes(group.age_group)))
-        .map((group: any) => Number(group.id));
-      if (!permittedIDs.includes(Number(child.age_group_id))) {
-        await writeSecurityAudit(supabase, "child_response_management_access", "denied", "warning", installationId.trim(), {
-          reason: "age_group_not_permitted",
-          role: requestedRole,
-          age_group_id: Number(child.age_group_id),
-        });
-        return response({ error: "You can only manage responses for your selected age groups" }, 403);
-      }
+    if (requestedRole === "coach" &&
+        !authorisedAgeGroupIDs.includes(Number(child.age_group_id))) {
+      await writeSecurityAudit(supabase, "child_response_management_access", "denied", "warning", installationId.trim(), {
+        reason: "age_group_not_assigned",
+        role: requestedRole,
+        age_group_id: Number(child.age_group_id),
+      });
+      return response({ error: "You can only manage responses for age groups assigned to your Coach account" }, 403);
     }
 
     // =====================================================
