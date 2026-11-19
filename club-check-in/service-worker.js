@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "club-check-in-v1173-notification-click-routing";
+const CACHE_NAME = "club-check-in-v1174-notification-click-routing";
 
 const APP_SHELL = [
     "./",
