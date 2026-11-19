@@ -2056,3 +2056,130 @@ async function copyMatchFixtureLink(fixtureId, parentToken = null) {
         await appAlert(error.message || "Unable to copy fixture link.", "Copy failed", "danger");
     }
 }
+
+
+// =========================================================
+// ATTENDANCE INSIGHTS
+// =========================================================
+
+async function showAttendanceInsights() {
+    if (currentRole !== "senior" || !currentSeniorPIN) {
+        await appAlert("Admin access is required to view attendance insights.", "Access denied", "warning");
+        return;
+    }
+
+    renderShell(`
+        <div class="card attendance-insights-page">
+            <button class="back-button" onclick="showSeniorDashboard()">← Admin Dashboard</button>
+            <div class="attendance-insights-heading">
+                <div>
+                    <div class="attendance-insights-eyebrow">CLUB PERFORMANCE</div>
+                    <h2>Attendance Insights</h2>
+                    <div class="subtitle">A club-wide view of attendance since November 2026.</div>
+                </div>
+                <div class="attendance-insights-mark" aria-hidden="true">↗</div>
+            </div>
+            <div id="attendanceInsightsContent"><div class="info-box">Loading attendance history…</div></div>
+        </div>
+    `);
+
+    const host = document.getElementById("attendanceInsightsContent");
+    if (!host) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("attendance_history")
+            .select("register_date, age_group, total_players, present_count, absent_count")
+            .gte("register_date", "2026-11-01")
+            .order("register_date", { ascending: true });
+        if (error) throw error;
+        if (!Array.isArray(data) || !data.length) {
+            host.innerHTML = '<div class="info-box">There is no saved attendance history from November 2026 onwards yet.</div>';
+            return;
+        }
+
+        const rows = data.map(row => ({
+            date: String(row.register_date).slice(0, 10),
+            group: String(row.age_group || "Other"),
+            potential: Math.max(0, Number(row.total_players) || 0),
+            present: Math.max(0, Number(row.present_count) || 0)
+        })).filter(row => row.date && row.potential > 0);
+        if (!rows.length) {
+            host.innerHTML = '<div class="info-box">No usable attendance history was found for this period.</div>';
+            return;
+        }
+
+        const sum = values => values.reduce((a, b) => a + b, 0);
+        const totalPotential = sum(rows.map(r => r.potential));
+        const totalPresent = sum(rows.map(r => r.present));
+        const totalAbsent = Math.max(0, totalPotential - totalPresent);
+        const overallPct = Math.round(totalPresent / totalPotential * 100);
+        const dateLabel = value => new Date(value + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+        const groupTotals = {};
+        const weekTotals = {};
+        rows.forEach(row => {
+            if (!groupTotals[row.group]) groupTotals[row.group] = { potential: 0, present: 0, sessions: 0 };
+            groupTotals[row.group].potential += row.potential;
+            groupTotals[row.group].present += row.present;
+            groupTotals[row.group].sessions++;
+            const d = new Date(row.date + "T12:00:00");
+            d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+            if (!weekTotals[key]) weekTotals[key] = { potential: 0, present: 0 };
+            weekTotals[key].potential += row.potential;
+            weekTotals[key].present += row.present;
+        });
+
+        const knownOrder = ["U6", "U7", "U8", "U9", "U10", "U11", "U12"];
+        const groupNames = Object.keys(groupTotals).sort((a, b) => {
+            const ai = knownOrder.indexOf(a), bi = knownOrder.indexOf(b);
+            return ai < 0 && bi < 0 ? a.localeCompare(b) : ai < 0 ? 1 : bi < 0 ? -1 : ai - bi;
+        });
+        const groupHtml = groupNames.map(name => {
+            const item = groupTotals[name];
+            const pct = Math.round(item.present / item.potential * 100);
+            return `<div class="attendance-group-row">
+                <div class="attendance-group-top"><strong>${escapeHTML(name)}</strong><span><b>${pct}%</b><small>${item.present} / ${item.potential}</small></span></div>
+                <div class="attendance-progress-track"><div class="attendance-progress-fill" style="width:${Math.min(100, pct)}%"></div></div>
+                <div class="attendance-group-foot">${item.sessions} register${item.sessions === 1 ? "" : "s"} recorded</div>
+            </div>`;
+        }).join("");
+
+        const weeks = Object.entries(weekTotals).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+        const weekHtml = weeks.map(([week, item]) => {
+            const pct = Math.round(item.present / item.potential * 100);
+            const end = new Date(week + "T12:00:00");
+            end.setDate(end.getDate() + 6);
+            const endKey = end.getFullYear() + "-" + String(end.getMonth() + 1).padStart(2, "0") + "-" + String(end.getDate()).padStart(2, "0");
+            return `<div class="attendance-week-row">
+                <div class="attendance-week-label">${dateLabel(week)} – ${dateLabel(endKey)}</div>
+                <div class="attendance-week-track"><div class="attendance-week-fill" style="width:${Math.min(100, pct)}%"></div></div>
+                <strong>${pct}%</strong><small>${item.present}/${item.potential}</small>
+            </div>`;
+        }).join("");
+
+        host.innerHTML = `
+            <section class="attendance-overview">
+                <div class="attendance-overview-main"><span>CLUB ATTENDANCE</span><strong>${overallPct}<small>%</small></strong><div>${totalPresent.toLocaleString("en-GB")} present from ${totalPotential.toLocaleString("en-GB")} player places</div></div>
+                <div class="attendance-overview-side">
+                    <div><strong>${totalPresent.toLocaleString("en-GB")}</strong><span>Present</span></div>
+                    <div><strong>${totalAbsent.toLocaleString("en-GB")}</strong><span>Not present</span></div>
+                    <div><strong>${rows.length}</strong><span>Registers</span></div>
+                </div>
+            </section>
+            <div class="attendance-insights-section">
+                <div class="attendance-section-heading"><h3>By age group</h3><p>Attendance across recorded registers</p></div>
+                <div class="attendance-groups-list">${groupHtml}</div>
+            </div>
+            <div class="attendance-insights-section">
+                <div class="attendance-section-heading"><h3>Weekly trend</h3><p>Club attendance by week · latest six weeks</p></div>
+                <div class="attendance-week-list">${weekHtml}</div>
+            </div>
+            <div class="attendance-insights-footnote">Based on saved register snapshots from 1 November 2026. Figures represent player-session attendance, not unique children. Latest register: ${dateLabel(rows[rows.length - 1].date)}.</div>
+        `;
+    } catch (error) {
+        console.error("Attendance insights load failed:", error);
+        host.innerHTML = '<div class="info-box warning-box">Attendance history could not be loaded. Please try again.</div>';
+    }
+}
