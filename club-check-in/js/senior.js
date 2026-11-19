@@ -817,60 +817,20 @@ async function matchAdminCall(functionName, body) {
 
 async function showMatchAvailabilityAdmin() {
 
-    if (
-        !(
-            (currentRole === "senior" && currentSeniorPIN) ||
-            (currentRole === "coach" && currentAccessPIN)
-        )
-    ) {
-        await appAlert(
-            "Please log in to access Match Availability.",
-            "Access required",
-            "danger"
-        );
-        return;
+    // Compatibility route: Season Planner is the single master interface.
+    if (currentRole === "senior" && currentSeniorPIN) {
+        return showSeasonPlanner();
     }
 
-    const isSenior = currentRole === "senior";
+    if (currentRole === "coach" && currentAccessPIN) {
+        return showCoachSeasonPlanner();
+    }
 
-    renderShell(`
-        <div class="card">
-
-            <button class="back-button"
-                onclick="${isSenior ? "showSeniorDashboard()" : "showCoachDashboard()"}">
-                ← Back to Dashboard
-            </button>
-
-            <h2>Match Availability</h2>
-
-            <div class="subtitle">
-                Manage fixtures and parent responses.
-            </div>
-
-            <div id="matchAdminMessage"></div>
-
-            <div class="user-management-actions" style="margin-top:20px;">
-                <button class="primary-button"
-                    onclick="showMatchFixtureForm()">
-                    + Create Fixture
-                </button>
-
-                <button class="secondary-button"
-                    onclick="copyCentralMatchParentLink()">
-                    Copy Parent Home Link
-                </button>
-            </div>
-
-            <h3 style="margin-top:25px;">Fixtures</h3>
-
-            <div id="matchAdminFixtures">
-                Loading fixtures...
-            </div>
-
-        </div>
-    `);
-
-    await loadMatchAdminFixtures();
+    await appAlert(
+        "Please log in to access the Season Planner.",
+        "Access required",
+        "warning"
+    );
 }
 
 // =========================================================
