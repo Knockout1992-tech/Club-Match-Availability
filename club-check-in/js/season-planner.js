@@ -262,11 +262,54 @@ function spRenderHolidays() {
     h+='<section class="sp-existing-section"><h3>Planned holidays</h3>'+breaks+'</section>';
     return h;
 }
-function spGroupCalendarEvents(events){const grouped=new Map();events.forEach(event=>{const k=spEventGroupKey(event);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(event);});const allIds=(seasonPlannerData.age_groups||[]).map(g=>String(g.id)).sort();return [...grouped.values()].map(items=>{const ids=[...new Set(items.map(e=>String(e.age_group_id)))].sort(),names=ids.map(id=>{const g=(seasonPlannerData.age_groups||[]).find(x=>String(x.id)===id);return g?(g.display_name||g.age_group):"";}).filter(Boolean),all=allIds.length>0&&ids.length===allIds.length&&ids.every((id,i)=>id===allIds[i]),notes=[...new Set(items.map(e=>(e.notes||"").trim()).filter(Boolean))];return {items,event:items[0],ageLabel:all?"All age groups":names.join(" · "),multiple:items.length>1,notes:notes.length===1?notes[0]:""};}).sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date)||String(a.event.start_time||"").localeCompare(String(b.event.start_time||"")));}
+function spCalendarDateRange(startDate,endDate){
+    const format=value=>new Date(value+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+    const start=format(startDate),end=format(endDate);
+    return startDate===endDate?start+" "+String(startDate).slice(0,4):start+" – "+end+" "+String(endDate).slice(0,4);
+}
+function spGroupCalendarEvents(events){
+    const grouped=new Map();
+    events.forEach(event=>{const k=spEventGroupKey(event);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(event);});
+    const allIds=(seasonPlannerData.age_groups||[]).map(g=>String(g.id)).sort();
+    let groups=[...grouped.values()].map(items=>{
+        const ids=[...new Set(items.map(e=>String(e.age_group_id)))].sort();
+        const names=ids.map(id=>{const g=(seasonPlannerData.age_groups||[]).find(x=>String(x.id)===id);return g?(g.display_name||g.age_group):"";}).filter(Boolean);
+        const all=allIds.length>0&&ids.length===allIds.length&&ids.every((id,i)=>id===allIds[i]);
+        const notes=[...new Set(items.map(e=>(e.notes||"").trim()).filter(Boolean))];
+        return {items,event:items[0],ageLabel:all?"All age groups":names.join(" · "),multiple:items.length>1,notes:notes.length===1?notes[0]:""};
+    });
+    const holidayGroups=new Map(),otherGroups=[];
+    groups.forEach(group=>{
+        if(group.event.event_type!=="holiday"){otherGroups.push(group);return;}
+        const key=spEventGroupKey({...group.event,event_date:""});
+        if(!holidayGroups.has(key))holidayGroups.set(key,[]);
+        holidayGroups.get(key).push(group);
+    });
+    holidayGroups.forEach(periods=>{
+        periods.sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date));
+        let current=null,previousDate=null;
+        periods.forEach(group=>{
+            const date=new Date(group.event.event_date+"T12:00:00Z");
+            const previous=previousDate?new Date(previousDate+"T12:00:00Z"):null;
+            const dayGap=previous?Math.round((date-previous)/86400000):null;
+            if(!current||![1,7].includes(dayGap)){
+                if(current)otherGroups.push(current);
+                current={...group,holidayDates:[group.event.event_date]};
+            }else{
+                current.items=current.items.concat(group.items);
+                current.holidayDates.push(group.event.event_date);
+                current.multiple=true;
+            }
+            previousDate=group.event.event_date;
+        });
+        if(current)otherGroups.push(current);
+    });
+    return otherGroups.sort((a,b)=>a.event.event_date.localeCompare(b.event.event_date)||String(a.event.start_time||"").localeCompare(String(b.event.start_time||"")));
+}
 function spRenderCalendar(){
     const groups=seasonPlannerData.age_groups,grouped=spGetCalendarGroups();
     const rows=grouped.map(g=>{
-        const x=g.event,past=x.event_date<spToday(),time=x.start_time?spTime(x.start_time)+(x.end_time?"–"+spTime(x.end_time):""):"Time not set";
+        const x=g.event,past=x.event_date<spToday(),isHoliday=x.event_type==="holiday",time=isHoliday?"":(x.start_time?spTime(x.start_time)+(x.end_time?"–"+spTime(x.end_time):""):"Time not set");
         const fixtureIds=[...new Set((g.items||[]).map(item=>seasonPlannerAvailabilityByEvent.get(Number(item.id))).filter(Boolean).map(Number))];
         const fixtureId=fixtureIds[0]||null;
         const availableCount=fixtureIds.reduce((total,id)=>total+(seasonPlannerCoachAvailableByFixture.has(id)?seasonPlannerCoachAvailableByFixture.get(id):0),0);
@@ -274,11 +317,13 @@ function spRenderCalendar(){
         const availabilityOn=x.availability_enabled!==false&&!["holiday","cancelled"].includes(x.event_type);
         const mapLink=spMapsUrl(x.venue);
         if(past){
-            return '<div data-event-ids="'+(g.items||[]).map(item=>Number(item.id)).join(" ")+'" class="sp-calendar-row sp-calendar-'+spEventCategory(x.event_type,x.match_location)+' sp-calendar-past"><div class="sp-calendar-main"><div class="sp-calendar-date">'+spDate(x.event_date)+'</div><strong>'+spEsc(x.title)+'</strong> '+spTypeBadge(x.event_type,x.match_location)+' <span class="sp-locked-tag">Past</span></div></div>';
+            return '<div data-event-ids="'+(g.items||[]).map(item=>Number(item.id)).join(" ")+'" class="sp-calendar-row sp-calendar-'+spEventCategory(x.event_type,x.match_location)+' sp-calendar-past"><div class="sp-calendar-main"><div class="sp-calendar-date">'+(isHoliday&&g.holidayDates&&g.holidayDates.length>1?spCalendarDateRange(g.holidayDates[0],g.holidayDates[g.holidayDates.length-1]):spDate(x.event_date))+'</div><strong>'+spEsc(x.title)+'</strong> '+spTypeBadge(x.event_type,x.match_location)+' <span class="sp-locked-tag">Past</span></div></div>';
         }
         const edit=x.event_date>spToday()?'<button class="secondary-button" onclick="editSeasonPlannerEvent('+x.id+')">Change</button>':'';
-        const actions='<div class="sp-calendar-actions">'+(fixtureId?'<button class="secondary-button" onclick="spReviewAvailability('+fixtureId+')">Review availability</button><button class="secondary-button" onclick="copyMatchFixtureLink('+fixtureId+')">Copy Fixture Link</button>':(availabilityOn?'<span class="sp-field-hint">Availability link will be created when an Admin next opens the Season Calendar.</span>':''))+'<button class="secondary-button" onclick="shareSeasonPlannerEventWhatsApp('+x.id+')">Share via WhatsApp</button>'+edit+'</div>';
-        return '<div data-event-ids="'+(g.items||[]).map(item=>Number(item.id)).join(" ")+'" class="sp-calendar-row sp-calendar-'+spEventCategory(x.event_type,x.match_location)+'"><div class="sp-calendar-main"><div class="sp-calendar-date">'+spDate(x.event_date)+'</div><strong>'+spEsc(x.title)+'</strong> '+spTypeBadge(x.event_type,x.match_location)+'<div class="sp-event-meta">'+spEsc(g.ageLabel)+' · '+spEsc(time)+'</div>'+(x.venue?'<div class="sp-event-meta">Venue: '+spEsc(x.venue)+(mapLink?' · <a href="'+spEsc(mapLink)+'" target="_blank" rel="noopener">Open in Google Maps</a>':'')+'</div>':'')+(g.notes?'<div class="sp-event-meta">'+spEsc(g.notes)+'</div>':'')+(currentRole==="coach"&&availabilityOn&&fixtureIds.length?'<div class="sp-available-count">'+(hasAvailableCount?'<strong>'+availableCount+' Available</strong>':'<span>Loading availability…</span>')+'</div>':'')+actions+'</div></div>';
+        const holidayChangeButtons=isHoliday?[...new Set((g.items||[]).map(item=>item.event_date))].map(date=>{const item=(g.items||[]).find(entry=>entry.event_date===date);return '<button class="secondary-button" onclick="editSeasonPlannerEvent('+item.id+')">Change '+spDate(date).slice(0,5)+'</button>';}).join(""):edit;
+        const actions='<div class="sp-calendar-actions">'+(isHoliday?holidayChangeButtons:(fixtureId?'<button class="secondary-button" onclick="spReviewAvailability('+fixtureId+')">Review availability</button><button class="secondary-button" onclick="copyMatchFixtureLink('+fixtureId+')">Copy Fixture Link</button>':(availabilityOn?'<span class="sp-field-hint">Availability link will be created when an Admin next opens the Season Calendar.</span>':''))+'<button class="secondary-button" onclick="shareSeasonPlannerEventWhatsApp('+x.id+')">Share via WhatsApp</button>'+edit)+'</div>';
+        const actions='<div class="sp-calendar-actions">'+(isHoliday?holidayChangeButtons:(fixtureId?'<button class="secondary-button" onclick="spReviewAvailability('+fixtureId+')">Review availability</button><button class="secondary-button" onclick="copyMatchFixtureLink('+fixtureId+')">Copy Fixture Link</button>':(availabilityOn?'<span class="sp-field-hint">Availability link will be created when an Admin next opens the Season Calendar.</span>':''))+'<button class="secondary-button" onclick="shareSeasonPlannerEventWhatsApp('+x.id+')">Share via WhatsApp</button>'+edit)+'</div>';
+        return '<div data-event-ids="'+(g.items||[]).map(item=>Number(item.id)).join(" ")+'" class="sp-calendar-row sp-calendar-'+spEventCategory(x.event_type,x.match_location)+'"><div class="sp-calendar-main"><div class="sp-calendar-date">'+(isHoliday&&g.holidayDates&&g.holidayDates.length>1?spCalendarDateRange(g.holidayDates[0],g.holidayDates[g.holidayDates.length-1]):spDate(x.event_date))+'</div><strong>'+spEsc(x.title)+'</strong> '+spTypeBadge(x.event_type,x.match_location)+'<div class="sp-event-meta">'+spEsc(g.ageLabel)+(time?' · '+spEsc(time):'')+'</div>'+(x.venue?'<div class="sp-event-meta">Venue: '+spEsc(x.venue)+(mapLink?' · <a href="'+spEsc(mapLink)+'" target="_blank" rel="noopener">Open in Google Maps</a>':'')+'</div>':'')+(g.notes?'<div class="sp-event-meta">'+spEsc(g.notes)+'</div>':'')+(currentRole==="coach"&&availabilityOn&&fixtureIds.length?'<div class="sp-available-count">'+(hasAvailableCount?'<strong>'+availableCount+' Available</strong>':'<span>Loading availability…</span>')+'</div>':'')+actions+'</div></div>';
     }).join("")||'<div class="sp-empty">No events found for these filters.</div>';
     const toolbar=currentRole==="coach"
         ? '<div class="sp-calendar-toolbar"><div class="sp-field-hint">Showing '+spEsc((selectedAgeGroups||[]).join(" + "))+" and club-wide events</div><button class=\"secondary-button\" onclick=\"copyCentralMatchParentLink()\">Copy Parent Home Link</button></div>"
