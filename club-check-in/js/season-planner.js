@@ -321,12 +321,13 @@ function spRenderCalendar(){
         }
         const edit=x.event_date>spToday()?'<button class="secondary-button" onclick="editSeasonPlannerEvent('+x.id+')">Change</button>':'';
         const holidayChangeButtons=isHoliday?[...new Set((g.items||[]).map(item=>item.event_date))].map(date=>{const item=(g.items||[]).find(entry=>entry.event_date===date);return '<button class="secondary-button" onclick="editSeasonPlannerEvent('+item.id+')">Change '+spDate(date).slice(0,5)+'</button>';}).join(""):edit;
-        const actions='<div class="sp-calendar-actions">'+(isHoliday?holidayChangeButtons:(fixtureId?'<button class="secondary-button" onclick="spReviewAvailability('+fixtureId+')">Review availability</button><button class="secondary-button" onclick="copyMatchFixtureLink('+fixtureId+')">Copy Fixture Link</button>':(availabilityOn?'<span class="sp-field-hint">Availability link will be created when an Admin next opens the Season Calendar.</span>':''))+'<button class="secondary-button" onclick="shareSeasonPlannerEventWhatsApp('+x.id+')">Share via WhatsApp</button>'+edit)+'</div>';
+        const actions='<div class="sp-calendar-actions">'+(isHoliday?holidayChangeButtons:(fixtureId?'<button class="secondary-button" onclick="spReviewAvailability('+fixtureId+')">Review availability</button><button class="secondary-button" onclick="copyMatchFixtureLink('+fixtureId+')">Copy Fixture Link</button>':(availabilityOn?'<span class="sp-field-hint">Availability link is being prepared for parents.</span>':''))+'<button class="secondary-button" onclick="shareSeasonPlannerEventWhatsApp('+x.id+')">Share via WhatsApp</button>'+edit)+'</div>';
         return '<div data-event-ids="'+(g.items||[]).map(item=>Number(item.id)).join(" ")+'" class="sp-calendar-row sp-calendar-'+spEventCategory(x.event_type,x.match_location)+'"><div class="sp-calendar-main"><div class="sp-calendar-date">'+(isHoliday&&g.holidayDates&&g.holidayDates.length>1?spCalendarDateRange(g.holidayDates[0],g.holidayDates[g.holidayDates.length-1]):spDate(x.event_date))+'</div><strong>'+spEsc(x.title)+'</strong> '+spTypeBadge(x.event_type,x.match_location)+'<div class="sp-event-meta">'+spEsc(g.ageLabel)+(time?' · '+spEsc(time):'')+'</div>'+(x.venue?'<div class="sp-event-meta">Venue: '+spEsc(x.venue)+(mapLink?' · <a href="'+spEsc(mapLink)+'" target="_blank" rel="noopener">Open in Google Maps</a>':'')+'</div>':'')+(g.notes?'<div class="sp-event-meta">'+spEsc(g.notes)+'</div>':'')+(currentRole==="coach"&&availabilityOn&&fixtureIds.length?'<div class="sp-available-count">'+(hasAvailableCount?'<strong>'+availableCount+' Available</strong>':'<span>Loading availability…</span>')+'</div>':'')+actions+'</div></div>';
     }).join("")||'<div class="sp-empty">No events found for these filters.</div>';
+    const addEventButton = "<button class=\"primary-button\" onclick=\"spSetPage('new-event')\">+ Add Event / Fixture</button>";
     const toolbar=currentRole==="coach"
-        ? '<div class="sp-calendar-toolbar"><div class="sp-field-hint">Showing '+spEsc((selectedAgeGroups||[]).join(" + "))+" and club-wide events</div><button class=\"secondary-button\" onclick=\"copyCentralMatchParentLink()\">Copy Parent Home Link</button></div>"
-        : '<div class="sp-calendar-toolbar"><div class="form-group"><label for="spFilter">Age group</label><select id="spFilter" onchange="filterSeasonPlannerCalendar(this.value)"><option value="all">All age groups</option>'+groups.map(g=>'<option value="'+g.id+'">'+spEsc(g.display_name||g.age_group)+'</option>').join("")+'</select></div><button class="secondary-button" onclick="copyCentralMatchParentLink()">Copy Parent Home Link</button></div>';
+        ? '<div class="sp-calendar-toolbar"><div class="sp-field-hint">Showing '+spEsc((selectedAgeGroups||[]).join(" + "))+" and club-wide events</div><button class=\"secondary-button\" onclick=\"copyCentralMatchParentLink()\">Copy Parent Home Link</button>"+addEventButton+"</div>"
+        : '<div class="sp-calendar-toolbar"><div class="form-group"><label for="spFilter">Age group</label><select id="spFilter" onchange="filterSeasonPlannerCalendar(this.value)"><option value="all">All age groups</option>'+groups.map(g=>'<option value="'+g.id+'">'+spEsc(g.display_name||g.age_group)+'</option>').join("")+'</select></div><button class="secondary-button" onclick="copyCentralMatchParentLink()">Copy Parent Home Link</button>'+addEventButton+'</div>';
     return toolbar+'<div class="sp-calendar-filter-row"><label><input type="checkbox" '+(seasonPlannerShowPast?'checked':'')+' onchange="toggleSeasonPlannerPast(this.checked)"> Show past sessions</label><label><input type="checkbox" '+(seasonPlannerShowCancelled?'checked':'')+' onchange="toggleSeasonPlannerCancelled(this.checked)"> Show cancelled events</label></div>'+rows;
 }
 
@@ -440,12 +441,13 @@ function spRenderSetup() {
 function renderSeasonPlanner() {
     const root=document.getElementById("seasonPlannerContent");
     if(!root||!seasonPlannerData) return;
-    const pages={home:spRenderHome,schedules:spRenderSchedules,holidays:spRenderHolidays,calendar:spRenderCalendar,setup:spRenderSetup,"edit-event":spRenderEventEditor,"availability-review":spRenderAvailabilityReview};
+    const pages={home:spRenderHome,schedules:spRenderSchedules,holidays:spRenderHolidays,calendar:spRenderCalendar,setup:spRenderSetup,"new-event":spRenderNewEvent,"edit-event":spRenderEventEditor,"availability-review":spRenderAvailabilityReview};
     const headers={
         home:["Season Planner","Plan recurring training, matches, holidays and other age-group events across the full season."],
         schedules:["Recurring Schedules","Create and manage regular training and match schedules across your age groups."],
         holidays:["Holidays & Breaks","Set dates when training and club activities are paused."],
         calendar:["Season Calendar","View the season at a glance and make changes to future events."],
+        "new-event":["Add Event / Fixture","Add a one-off event or fixture for your age groups."],
         "edit-event":["Change Event","Update the event details and choose which age groups receive the change."],
         "availability-review":["Event Availability","Review parent responses and update player availability."],
         setup:["Season Setup","Set the dates for your club season."]
@@ -461,7 +463,7 @@ function renderSeasonPlanner() {
     if(back) {
         back.textContent=currentRole==="coach"
             ? (seasonPlannerPage==="calendar"?"← Back to Dashboard":"← Back to Fixtures & Events")
-            : (seasonPlannerPage==="home"?"← Back to Dashboard":(["edit-event","availability-review"].includes(seasonPlannerPage)?"← Back to Calendar":"← Back to Season Planner"));
+            : (seasonPlannerPage==="home"?"← Back to Dashboard":(["edit-event","availability-review","new-event"].includes(seasonPlannerPage)?"← Back to Calendar":"← Back to Season Planner"));
         if(currentRole==="coach") {
             back.onclick=seasonPlannerPage==="calendar"?showCoachDashboard:()=>spSetPage("calendar");
         } else {
@@ -619,6 +621,104 @@ function editSeasonPlannerEvent(id) {
         return appAlert("Past sessions and today's sessions cannot be changed.","Past session","warning");
     seasonPlannerEditingEventId=Number(id);
     spSetPage("edit-event");
+}
+
+
+function spUpdateNewEventFields() {
+    const type=document.getElementById("spNewType")?.value;
+    const location=document.getElementById("spNewMatchLocation")?.value;
+    const matchWrap=document.getElementById("spNewMatchLocationWrap");
+    const venue=document.getElementById("spNewVenue");
+    const venueLabel=document.getElementById("spNewVenueLabel");
+    const venueHint=document.getElementById("spNewVenueHint");
+    if(matchWrap) matchWrap.style.display=type==="match"?"block":"none";
+    if(venueLabel) venueLabel.textContent=type==="match"?(location==="home"?"Home venue":"Away venue / address"):"Location";
+    if(venue) {
+        const home=type==="match"&&location==="home";
+        venue.readOnly=home;
+        if(home) venue.value="Rushden & Higham RUFC";
+        else if(venue.value==="Rushden & Higham RUFC") venue.value="";
+        venue.placeholder=type==="match"&&location==="away"?"Enter away ground name and full address":"Enter venue or full address";
+    }
+    if(venueHint) venueHint.textContent=type==="match"?(location==="home"?"The club home venue is set automatically.":"Enter the opposition's ground or full address."):"Add the event location if needed.";
+}
+function spRenderNewEvent() {
+    const coachMode=currentRole==="coach";
+    const groups=(seasonPlannerData.age_groups||[]).filter(g=>{
+        if(g.active===false) return false;
+        if(!coachMode) return true;
+        return (selectedAgeGroups||[]).includes(g.age_group)||(selectedAgeGroups||[]).includes(g.display_name);
+    });
+    const checks=groups.map(g=>'<label class="sp-group-choice"><input type="checkbox" class="spNewEventGroup" value="'+Number(g.id)+'" checked> '+spEsc(g.display_name||g.age_group)+'</label>').join("");
+    const season=seasonPlannerData.season||{};
+    return '<section class="sp-event-editor-page"><div class="sp-editor-page-heading"><div><div class="sp-eyebrow">SEASON CALENDAR</div><h2>Add a one-off event</h2><p>Create an event or fixture without changing recurring schedules.</p></div></div>'+
+        '<div class="sp-form-panel"><div class="form-group"><label>Age groups</label><div class="sp-group-picker">'+checks+'</div><div class="sp-field-hint">Select the teams this event applies to.</div></div>'+
+        '<div class="form-group"><label for="spNewType">Event type</label><select id="spNewType" onchange="spUpdateNewEventFields()"><option value="training">Training</option><option value="match">Fixture</option><option value="other">Other event</option></select></div>'+
+        '<div class="form-group"><label for="spNewTitle" id="spNewTitleLabel">Event title</label><input id="spNewTitle" maxlength="120" placeholder="Enter an event title"></div>'+
+        '<div class="form-group"><label for="spNewDate">Date</label><input id="spNewDate" type="date" min="'+(season.start_date||"")+'" max="'+(season.end_date||"")+'"></div>'+
+        '<div class="sp-form-grid"><div class="form-group"><label for="spNewStart">Start time</label><input id="spNewStart" type="time"></div><div class="form-group"><label for="spNewEnd">End time</label><input id="spNewEnd" type="time"></div></div>'+
+        '<div class="form-group" id="spNewMatchLocationWrap" style="display:none"><label for="spNewMatchLocation">Match location</label><select id="spNewMatchLocation" onchange="spUpdateNewEventFields()"><option value="home">Home</option><option value="away">Away</option></select></div>'+
+        '<div class="form-group"><label id="spNewVenueLabel" for="spNewVenue">Location</label><textarea id="spNewVenue" maxlength="500" rows="3" placeholder="Enter venue or full address"></textarea><div id="spNewVenueHint" class="sp-field-hint">Add the event location if needed.</div></div>'+
+        '<div class="form-group"><label for="spNewNotes">Notes</label><textarea id="spNewNotes" maxlength="1000" rows="3" placeholder="Add useful information for coaches and parents"></textarea></div>'+
+        '<div class="form-group"><label class="sp-availability-setting"><span><strong>Request availability</strong><small>Parents will be asked to respond for this event.</small></span><span class="sp-switch"><input type="checkbox" id="spNewAvailability" checked><span class="sp-switch-track"></span></span></label><div class="sp-field-hint">A parent availability link will be created automatically when you save.</div></div>'+
+        '<div class="sp-editor-actions"><button class="primary-button" onclick="createSeasonPlannerEvent()">Create event</button> <button class="secondary-button" onclick="spSetPage(\'calendar\')">Cancel</button></div></div></section>';
+}
+async function createSeasonPlannerEvent() {
+    if(!spCoachOrSenior()) return;
+    const value=id=>document.getElementById(id)?.value;
+    const type=value("spNewType");
+    const title=(value("spNewTitle")||"").trim();
+    const date=value("spNewDate");
+    const start=value("spNewStart")||null;
+    const end=value("spNewEnd")||null;
+    const groups=[...document.querySelectorAll(".spNewEventGroup:checked")].map(x=>Number(x.value));
+    const matchLocation=type==="match"?(value("spNewMatchLocation")||"home"):null;
+    let venue=(value("spNewVenue")||"").trim();
+    if(type==="match"&&matchLocation==="home") venue="Rushden & Higham RUFC";
+    if(!groups.length) return appAlert("Select at least one age group.","No age groups selected","warning");
+    if(!title||!date) return appAlert("Enter an event title and date.","Check event details","warning");
+    if(date<=spToday()) return appAlert("Choose a future date.","Date must be in the future","warning");
+    if(date<(seasonPlannerData.season.start_date||"")||date>(seasonPlannerData.season.end_date||"")) return appAlert("The event date must be within the current season dates.","Date outside season","warning");
+    if(start&&end&&end<=start) return appAlert("The end time must be after the start time.","Check event times","warning");
+    if(type==="match"&&matchLocation==="away"&&!venue) return appAlert("Enter the away venue or address.","Away venue required","warning");
+    const availability=!!document.getElementById("spNewAvailability")?.checked;
+    try {
+        const result=await spRPC("create_season_planner_one_off_event",{
+            supplied_code:currentRole==="coach"?currentAccessPIN:currentSeniorPIN,
+            supplied_installation_id:getInstallationID(),
+            requested_season_id:Number(seasonPlannerData.season.id),
+            requested_age_group_ids:groups,
+            requested_event_date:date,
+            requested_event_type:type,
+            requested_title:title,
+            requested_start_time:start,
+            requested_end_time:end,
+            requested_venue:venue||null,
+            requested_opposition:type==="match"?title:null,
+            requested_match_location:matchLocation,
+            requested_notes:(value("spNewNotes")||"").trim()||null,
+            requested_availability_enabled:availability
+        });
+        if(!result?.success) throw new Error("The event could not be created. Check your access and selected age groups.");
+        if(currentRole==="coach") await loadCoachSeasonPlanner(); else await loadSeasonPlanner(null,true);
+        let fixtureId=null;
+        if(availability) {
+            const synced=await matchAdminCall("parent_home",{action:"sync_calendar"});
+            (synced.calendar_links||[]).forEach(link=>(link.event_ids||[]).forEach(id=>seasonPlannerAvailabilityByEvent.set(Number(id),Number(link.fixture_id))));
+            if(currentRole==="coach") await loadCoachSeasonPlanner(); else await loadSeasonPlanner(null,true);
+            fixtureId=(result.event_ids||[]).map(id=>seasonPlannerAvailabilityByEvent.get(Number(id))).find(Boolean)||null;
+        }
+        seasonPlannerPage="calendar";
+        renderSeasonPlanner();
+        if(availability&&!fixtureId) {
+            await appAlert("The event was saved, but its parent availability link could not be confirmed. Refresh the calendar and try again.","Event saved — link needs checking","warning");
+        } else {
+            await appAlert("The one-off event has been added to the Season Calendar."+(fixtureId?" Its parent availability link is ready to share.":""),"Event created","success");
+        }
+    } catch(e) {
+        console.error("One-off Season Planner event creation failed:",e);
+        await appAlert(e.message||"Unable to create the event.","Event creation failed","danger");
+    }
 }
 
 function spRenderEventEditor() {
