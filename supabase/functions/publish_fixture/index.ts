@@ -120,6 +120,32 @@ const requestedRole = hasCoachCode ? "coach" : "senior";
       }, 401);
     }
 
+    if (requestedRole === "coach") {
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("user_age_group_assignments")
+        .select("age_group_id")
+        .eq("person_id", personId);
+      if (assignmentsError) {
+        console.error("Coach age-group lookup failed:", assignmentsError.message);
+        return response({ error: "Unable to verify Coach age-group access" }, 500);
+      }
+      const assignedIDs = new Set((assignments ?? []).map((item: any) => Number(item.age_group_id)));
+      const { data: fixtureGroups, error: fixtureGroupsError } = await supabase
+        .from("match_fixture_age_groups")
+        .select("age_group_id")
+        .eq("fixture_id", fixtureId);
+      if (fixtureGroupsError || !fixtureGroups || fixtureGroups.length === 0) {
+        return response({ error: "Unable to verify fixture age groups" }, 500);
+      }
+      if (fixtureGroups.some((group: any) => !assignedIDs.has(Number(group.age_group_id)))) {
+        await writeSecurityAudit(supabase, "fixture_publish_access", "denied", "warning", "coach", installationId.trim(), {
+          reason: "fixture_contains_unassigned_age_group",
+          fixture_id: Number(fixtureId),
+        });
+        return response({ error: "You can only publish fixtures for age groups assigned to your Coach account" }, 403);
+      }
+    }
+
     // Only draft fixtures can be published.
     const { data: fixture, error: updateError } = await supabase
       .from("match_fixtures")
