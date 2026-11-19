@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "club-check-in-v1213-holiday-calendar-fix";
+const CACHE_NAME = "club-check-in-v1216-holiday-change-label";
 
 const APP_SHELL = [
     "./",
