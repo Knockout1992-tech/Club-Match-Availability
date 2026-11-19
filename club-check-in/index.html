@@ -947,7 +947,7 @@ async function showRegister() {
                             saveSession()
                         ">
 
-                        Save Today's Registers
+                        ← Back
 
                     </button>
 
@@ -1014,7 +1014,7 @@ function showRoster() {
 
                                                     ${
                                                         !seniorConfirmed && coachSuggested
-                                                            ? `<div class="player-small">Coach has suggested GMS</div>`
+                                                            ? `<div class="player-small">GMS registration suggested by coach</div>`
                                                             : ""
                                                     }
                                                 </div>
@@ -1096,7 +1096,7 @@ function showCoachAddPlayer(
                     class="title"
                     for="targetAgeGroup">
 
-                    Add / Restore to:
+                    Age Group:
 
                 </label>
 
@@ -1138,8 +1138,8 @@ function showCoachAddPlayer(
 
                 ← ${
                     fromRoster
-                    ? "Roster"
-                    : "Register"
+                    ? "Back to Players"
+                    : "Back to Attendance"
                 }
             </button>
 
@@ -1980,7 +1980,7 @@ function showSeniorDashboard() {
                     </div>
 
                     <div class="stat-label">
-                        GMS Confirmed
+                        GMS Registration Confirmed
                     </div>
 
                 </div>
@@ -1992,7 +1992,7 @@ function showSeniorDashboard() {
                     </div>
 
                     <div class="stat-label">
-                        GMS Outstanding
+                        GMS Registration Outstanding
                     </div>
 
                 </div>
@@ -2021,9 +2021,7 @@ function showSeniorDashboard() {
                             : "s"
                         }
 
-                        require an archive review
-                        because they have not attended
-                        for 12 weeks or more.
+                        need an activity review because they have not attended for 12 weeks or more.
 
                     </div>
                 `
@@ -2037,7 +2035,7 @@ function showSeniorDashboard() {
                 <button
                     class="menu-button"
                     onclick="showSeniorAgeGroups()">
-                    All Age<br>Groups
+                    Age<br>Groups
                 </button>
 
                 <button
@@ -2049,7 +2047,7 @@ function showSeniorDashboard() {
                 <button
                     class="menu-button"
                     onclick="showArchiveReview()">
-                    Archive<br>Review
+                    Inactive Player<br>Review
                     ${
                         archiveReviewCount > 0
                         ? `<br>(${archiveReviewCount})`
@@ -2080,7 +2078,7 @@ function showSeniorDashboard() {
                 <button
                     class="menu-button blue"
                     onclick="showNewSeason()">
-                    New<br>Season
+                    Start New<br>Season
                 </button>
 
                 <button
@@ -2128,7 +2126,7 @@ function showSeniorAgeGroups() {
             </button>
 
             <h2>
-                All Age Groups
+                Age Groups
             </h2>
 
             <div class="subtitle">
@@ -2263,7 +2261,7 @@ function showArchiveReview() {
             </button>
 
             <h2>
-                Archive Review
+                Inactive Player Review
             </h2>
 
             <div class="subtitle">
@@ -2279,7 +2277,7 @@ function showArchiveReview() {
             ">
 
                 <strong>
-                    Review only — nothing is automatic.
+                    Review only — no player is archived automatically.
                 </strong>
 
                 <br><br>
@@ -2303,7 +2301,7 @@ function showArchiveReview() {
                     <div class="empty">
 
                         No players currently require
-                        an archive review.
+                        an activity review.
 
                     </div>
 
@@ -2652,7 +2650,7 @@ function showSeniorRestorePlayer(
                 class="back-button"
                 onclick="showArchiveList()">
 
-                ← Archived Players
+                ← Back to Archived Players
 
             </button>
 
@@ -2792,7 +2790,7 @@ function showPlayerManagement(
                 class="back-button"
                 onclick="showSeniorDashboard()">
 
-                ← Back
+                ← Back to Dashboard
 
             </button>
 
@@ -3076,7 +3074,7 @@ function showMovePlayer(
                     )
                 ">
 
-                ← Back
+                ← Back to Player Management
 
             </button>
 
@@ -3182,7 +3180,7 @@ function showSeniorAddPlayer(
                     )
                 ">
 
-                ← Back
+                ← Back to Player Management
 
             </button>
 
@@ -3597,7 +3595,7 @@ function showPINManagement() {
                 class="back-button"
                 onclick="showSeniorDashboard()">
 
-                ← Back
+                ← Back to Dashboard
 
             </button>
 
@@ -3678,7 +3676,7 @@ function showChangePIN(
                 class="back-button"
                 onclick="showPINManagement()">
 
-                ← Back
+                ← Back to Manage PINs
 
             </button>
 

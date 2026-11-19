@@ -838,7 +838,7 @@ async function showChangePlayerName(playerID) {
                     ? `showPlayerManagement(${JSON.stringify(player.ageGroup)})`
                     : "showRoster()"}'>
 
-                ← Back
+                ← ${currentRole === "senior" ? "Back to Player Management" : "Back to Players"}
 
             </button>
 

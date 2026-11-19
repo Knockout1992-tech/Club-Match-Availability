@@ -183,7 +183,7 @@ async function showUserManagement() {
 
     renderShell(`
         <div class="card">
-            <button class="back-button" onclick="showSeniorDashboard()">← Admin Dashboard</button>
+            <button class="back-button" onclick="showSeniorDashboard()">← Back to Dashboard</button>
             <h2>User Management</h2>
             <p class="subtitle">Manage approved users, roles and age-group access.</p>
 
@@ -306,7 +306,7 @@ async function showEditUserAccess(personID) {
 
     renderShell(`
         <div class="card">
-            <button class="back-button" onclick="showUserManagement()">← User Management</button>
+            <button class="back-button" onclick="showUserManagement()">← Back to User Management</button>
             <h2>Manage Access</h2>
             <h3>${escapeHTML(user.name)}</h3>
             <p class="subtitle">Person ID: ${escapeHTML(user.person_id)}</p>

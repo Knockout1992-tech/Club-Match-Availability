@@ -415,7 +415,9 @@ function renderSeasonPlanner() {
     if(title) title.textContent=header[0];
     if(description) description.textContent=header[1];
     if(back) {
-        back.textContent=seasonPlannerPage==="home"?"← Back to Dashboard":"← Back";
+        back.textContent=currentRole==="coach"
+            ? (seasonPlannerPage==="calendar"?"← Back to Dashboard":"← Back to Fixtures & Events")
+            : (seasonPlannerPage==="home"?"← Back to Dashboard":(["edit-event","availability-review"].includes(seasonPlannerPage)?"← Back to Calendar":"← Back to Season Planner"));
         if(currentRole==="coach") {
             back.onclick=seasonPlannerPage==="calendar"?showCoachDashboard:()=>spSetPage("calendar");
         } else {
