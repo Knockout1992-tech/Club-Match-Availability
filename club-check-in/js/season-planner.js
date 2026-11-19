@@ -35,7 +35,7 @@ function spMapsUrl(address) {
     const searchValue=value.split(",")[0].trim() || value;
     return "https://maps.google.com/?q="+encodeURIComponent(searchValue);
 }
-function shareSeasonPlannerEventWhatsApp(eventId) {
+async function shareSeasonPlannerEventWhatsApp(eventId) {
     const event=(seasonPlannerData?.events||[]).find(x=>Number(x.id)===Number(eventId));
     if(!event) return appAlert("This event could not be found.","Share unavailable","warning");
     const date=new Date(event.event_date+"T12:00:00").toLocaleDateString("en-GB",{
@@ -43,13 +43,24 @@ function shareSeasonPlannerEventWhatsApp(eventId) {
     });
     const venue=String(event.venue||"").trim();
     const notes=String(event.notes||"").trim();
+    const fixtureId=Number(seasonPlannerAvailabilityByEvent.get(Number(eventId))||0);
+    let availabilityLink=MATCH_AVAILABILITY_URL;
+    if(fixtureId) {
+        try {
+            const result=await matchAdminCall("admin_fixtures",{action:"detail",fixture_id:fixtureId});
+            const token=result.fixtures?.[0]?.parent_token;
+            if(token) availabilityLink=MATCH_AVAILABILITY_URL+"?fixture="+encodeURIComponent(token);
+        } catch(error) {
+            console.warn("Unable to retrieve direct parent link for WhatsApp share:",error);
+        }
+    }
     const lines=[
         "🏉 "+event.title+" – "+date,
         [spTime(event.start_time),spTime(event.end_time)].filter(Boolean).join(" – "),
         venue ? "📍 "+venue : "",
         venue ? "🗺️ "+spMapsUrl(venue) : "",
         notes ? "📝 "+notes : "",
-        "Availability: "+MATCH_AVAILABILITY_URL
+        "Availability: "+availabilityLink
     ].filter(Boolean);
     window.location.href="https://wa.me/?text="+encodeURIComponent(lines.join("\n"));
 }
