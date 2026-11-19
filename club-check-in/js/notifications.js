@@ -49,6 +49,20 @@ if ("serviceWorker" in navigator) {
     });
 }
 
+function coachPushIsSupported() {
+    if (!window.isSecureContext ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window) ||
+        !("Notification" in window)) return false;
+
+    // iOS/iPadOS web push requires the app to be installed on the Home Screen.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const installed = window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true;
+    return !(isIOS && !installed);
+}
+
 function coachPushBase64UrlToBytes(value) {
     const padded = value + "=".repeat((4 - value.length % 4) % 4);
     const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
@@ -76,8 +90,8 @@ async function enableCoachNotifications() {
     if (currentRole !== "coach" || !currentPersonID || !currentAuthSessionToken) {
         return appAlert("Please sign in to your Coach account first.", "Sign-in required", "warning");
     }
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-        return appAlert("Push notifications are not supported by this browser. Install Club Check-In as an app and try again.", "Not supported", "warning");
+    if (!coachPushIsSupported()) {
+        return appAlert("Push notifications are not available in this browser or installation. On iPhone or iPad, add Club Check-In to your Home Screen and open the installed app.", "Not supported", "warning");
     }
 
     try {
@@ -121,9 +135,7 @@ async function disableCoachNotifications() {
 
 async function showCoachNotificationSettings() {
     if (currentRole !== "coach") return;
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-        return appAlert("This browser does not support web push notifications.", "Not supported", "warning");
-    }
+    if (!coachPushIsSupported()) return;
 
     // Request permission directly from the dashboard button tap. This is
     // important on iOS, where the browser requires a user gesture.
@@ -145,12 +157,16 @@ async function showCoachNotificationSettings() {
 
 async function refreshCoachNotificationButton() {
     const button = document.getElementById("coachNotificationToggle");
-    if (!button) return;
+    const control = document.querySelector(".coach-notification-control");
+    if (!button || !control) return;
+    const supported = coachPushIsSupported();
+    control.hidden = !supported;
+    if (!supported) return;
     const state = button.querySelector("[data-notification-state]");
     if (!state) return;
     let enabled = false;
     try {
-        if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window && Notification.permission === "granted") {
+        if (Notification.permission === "granted") {
             const registration = await navigator.serviceWorker.ready;
             enabled = !!(await registration.pushManager.getSubscription());
         }
