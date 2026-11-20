@@ -2192,13 +2192,25 @@ function renderAttendanceInsights(customFrom = null, customTo = null) {
     }).join("");
 
     const weeks = Object.entries(weekTotals).sort((a, b) => a[0].localeCompare(b[0])).slice(-8);
-    const weekHtml = weeks.map(([week, item]) => {
+    const weekHtml = weeks.map(([week, item], index) => {
         const pct = Math.round(item.present / item.potential * 100);
+        const previousItem = index > 0 ? weeks[index - 1][1] : null;
+        const previousPct = previousItem
+            ? Math.round(previousItem.present / previousItem.potential * 100)
+            : null;
+        const trend = previousPct === null ? "is-first"
+            : pct > previousPct ? "is-up"
+            : pct < previousPct ? "is-down"
+            : "is-steady";
+        const arrow = trend === "is-up" ? "↑"
+            : trend === "is-down" ? "↓"
+            : trend === "is-steady" ? "→" : "–";
         const end = new Date(week + "T12:00:00"); end.setDate(end.getDate() + 6);
         return `<div class="attendance-week-row">
             <div class="attendance-week-label">${dateLabel(week).replace(/, \\d{4}$/, "")} – ${dateLabel(attendanceDateKey(end)).replace(/, \\d{4}$/, "")}</div>
             <div class="attendance-week-track"><div class="attendance-week-fill" style="width:${Math.min(100, pct)}%"></div></div>
-            <strong>${pct}%</strong><small>${item.present}/${item.potential}</small>
+            <strong class="attendance-week-result ${trend}"><span class="attendance-week-arrow" aria-hidden="true">${arrow}</span>${pct}%</strong>
+            <small>${item.present}/${item.potential}</small>
         </div>`;
     }).join("");
 
