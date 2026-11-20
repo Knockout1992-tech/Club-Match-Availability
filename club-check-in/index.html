@@ -318,7 +318,9 @@ async function showCoachDashboard() {
     }
 
     let activeCount = 0;
+    let attendancePlayerCount = 0;
     let presentCount = 0;
+    let openRegisterCount = 0;
 
     const todayKey = getTodayKey();
 
@@ -397,6 +399,15 @@ async function showCoachDashboard() {
             attendance
         };
 
+        // Only show attendance totals for registers that are still open.
+        if (registerRow.submitted === true ||
+            registerRow.closed_automatically === true) {
+            continue;
+        }
+
+        openRegisterCount++;
+        attendancePlayerCount += active.length;
+
         presentCount += active.filter(
             player =>
                 attendance[player.id] === true
@@ -404,7 +415,8 @@ async function showCoachDashboard() {
     }
 
     const absentCount =
-        activeCount - presentCount;
+        attendancePlayerCount - presentCount;
+    const hasOpenRegister = openRegisterCount > 0;
 
     renderShell(`
 
@@ -441,15 +453,17 @@ async function showCoachDashboard() {
                     <div class="stat-label">Players</div>
                 </div>
 
-                <div class="stat">
-                    <div class="stat-number">${presentCount}</div>
-                    <div class="stat-label">Present</div>
-                </div>
+                ${hasOpenRegister ? `
+                    <div class="stat">
+                        <div class="stat-number">${presentCount}</div>
+                        <div class="stat-label">Present</div>
+                    </div>
 
-                <div class="stat">
-                    <div class="stat-number">${absentCount}</div>
-                    <div class="stat-label">Absent</div>
-                </div>
+                    <div class="stat">
+                        <div class="stat-number">${absentCount}</div>
+                        <div class="stat-label">Absent</div>
+                    </div>
+                ` : ""}
 
             </div>
 

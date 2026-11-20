@@ -26,6 +26,32 @@ async function showWelcome() {
     renderPersonalLogin();
 }
 
+const REMEMBERED_PERSONAL_LOGIN_KEY = "clubCheckInRememberedName";
+
+function getRememberedPersonalLoginName() {
+    try {
+        return localStorage.getItem(REMEMBERED_PERSONAL_LOGIN_KEY) || "";
+    } catch (error) {
+        console.warn("Remembered login name is unavailable:", error);
+        return "";
+    }
+}
+
+function updateRememberedPersonalLogin() {
+    const name = document.getElementById("personalNameInput")?.value.trim() || "";
+    const remember = document.getElementById("rememberPersonalLogin")?.checked === true;
+
+    try {
+        if (remember && name) {
+            localStorage.setItem(REMEMBERED_PERSONAL_LOGIN_KEY, name);
+        } else {
+            localStorage.removeItem(REMEMBERED_PERSONAL_LOGIN_KEY);
+        }
+    } catch (error) {
+        console.warn("Could not save remembered login name:", error);
+    }
+}
+
 function renderPersonalLogin(message = "") {
     const account = personalLoginAccount;
     const setup = !!account?.pin_setup_required;
@@ -42,7 +68,15 @@ function renderPersonalLogin(message = "") {
                     <form onsubmit="event.preventDefault(); lookupPersonalLoginName();">
                         <label for="personalNameInput" style="display:block;text-align:left;font-weight:700;margin:0 0 7px">Your name</label>
                         <input id="personalNameInput" class="pin-input" type="text" maxlength="100"
-                            autocomplete="name" placeholder="Enter your name" required>
+                            autocomplete="name" placeholder="Enter your name"
+                            value="${escapeHTML(getRememberedPersonalLoginName())}" required>
+                        <label style="display:flex;align-items:center;gap:8px;text-align:left;font-size:14px;margin:10px 0 14px">
+                            <input id="rememberPersonalLogin" type="checkbox"
+                                style="width:auto;margin:0"
+                                ${getRememberedPersonalLoginName() ? "checked" : ""}
+                                onchange="updateRememberedPersonalLogin()">
+                            Remember me on this device
+                        </label>
                         <div id="personalLoginError" class="error">${escapeHTML(message)}</div>
                         <button class="primary-button" type="submit">Continue</button>
                     </form>
@@ -123,7 +157,11 @@ function serialisePasskeyCredential(credential) {
 }
 
 function preparePasskeyOptions(options) {
-    const prepared = { ...options, challenge: passkeyBase64UrlToBuffer(options.challenge) };
+    const prepared = {
+        ...options,
+        challenge: passkeyBase64UrlToBuffer(options.challenge),
+        userVerification: "required"
+    };
     if (options.user) {
         prepared.user = { ...options.user, id: passkeyBase64UrlToBuffer(options.user.id) };
     }
@@ -233,6 +271,7 @@ async function lookupPersonalLoginName() {
     }
 
     errorBox.textContent = "Checking account…";
+    updateRememberedPersonalLogin();
 
     try {
         const result = await callPasskeyService("authentication-options-by-name", {
