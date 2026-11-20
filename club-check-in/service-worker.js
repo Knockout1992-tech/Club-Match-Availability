@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "club-check-in-v1231-no-local-player-cache";
+const CACHE_NAME = "club-check-in-v1233-no-local-player-cache";
 
 const APP_SHELL = [
     "./",
