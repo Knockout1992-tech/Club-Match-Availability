@@ -9,6 +9,8 @@ let currentUserRoles = [];
 let currentAllowedAgeGroupIDs = [];
 let currentAuthSessionToken = null;
 
+let rememberedLoginAutoAttempted = false;
+
 async function showWelcome() {
     stopAppSessionTimeout();
     currentAccessPIN = null;
@@ -24,6 +26,14 @@ async function showWelcome() {
     personalLoginAccount = null;
 
     renderPersonalLogin();
+
+    // On a returning visit, automatically look up the remembered account
+    // and start passkey verification if this installation has a passkey.
+    const rememberedName = getRememberedPersonalLoginName();
+    if (rememberedName && !rememberedLoginAutoAttempted) {
+        rememberedLoginAutoAttempted = true;
+        await lookupPersonalLoginName();
+    }
 }
 
 const REMEMBERED_PERSONAL_LOGIN_KEY = "clubCheckInRememberedName";
