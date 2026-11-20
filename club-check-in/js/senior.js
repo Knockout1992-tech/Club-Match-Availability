@@ -55,7 +55,7 @@ async function permanentlyRemovePlayer(playerID) {
 
         if (typeof data !== "string" || !data) {
             throw new Error(
-                "Supabase did not confirm anonymisation. Check the PIN and archived status."
+                "Supabase did not confirm anonymisation. Check the Admin PIN, archived status and whether an active retention hold protects this player."
             );
         }
 
