@@ -153,7 +153,7 @@ Deno.serve(async(req)=>{
    if(error)throw new Error("Unable to create invitation");
    await markParentActivity(db,Number(parent.id));
    await writeSecurityAudit(db,"parent_family_invitation_created","success","info",Number(parent.id),{family_id:Number(familyId)});
-   return response({success:true,invite_url:"https://rhrfc-mini.pages.dev/?family_invite="+token,expires_at:expires});
+   return response({success:true,invite_url:"https://rhrufc-mini.pages.dev/?family_invite="+token,expires_at:expires});
   }
   if(action==="accept_invite"){
     const token=typeof body.invite_token==="string"?body.invite_token:"";
