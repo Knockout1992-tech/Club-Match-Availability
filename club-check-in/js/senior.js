@@ -83,8 +83,12 @@ async function permanentlyRemovePlayer(playerID) {
         diag?.error("Anonymisation failed:", error.message);
         console.error("Anonymisation failed:", error.message);
 
+        const message = error?.message?.includes("active retention hold")
+            ? "Anonymisation was not completed. Check the Admin PIN and archived status. An active retention hold may be protecting this player."
+            : "Anonymisation failed. No local player data was removed.";
+
         await appAlert(
-            "Anonymisation failed. No local player data was removed.",
+            message,
             "Anonymisation failed",
             "danger"
         );
