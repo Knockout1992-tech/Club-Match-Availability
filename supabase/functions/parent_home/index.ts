@@ -338,6 +338,28 @@ Deno.serve(async (req) => {
         if (selectedAgeGroupIds.length !== new Set(selectedAgeGroups).size) {
           return response({ error: "One or more selected age groups are no longer active" }, 403);
         }
+
+        // Do not trust the age-group names supplied by the browser. Resolve the
+        // individual Coach session and confirm every selected group is assigned.
+        const { data: coachPersonId, error: coachPersonError } = await adminClient.rpc("get_authenticated_person_id", {
+          supplied_credential: coachCode,
+          required_access_role: "coach",
+          supplied_installation_id: installationId
+        });
+        if (coachPersonError || !coachPersonId) {
+          return response({ error: "Your Coach session is invalid" }, 401);
+        }
+        const { data: coachAssignments, error: coachAssignmentsError } = await adminClient
+          .from("user_age_group_assignments")
+          .select("age_group_id")
+          .eq("person_id", coachPersonId);
+        if (coachAssignmentsError) {
+          return response({ error: "Unable to verify Coach age-group assignments" }, 500);
+        }
+        const assignedIds = new Set((coachAssignments ?? []).map((row: any) => Number(row.age_group_id)));
+        if (selectedAgeGroupIds.some((id: number) => !assignedIds.has(id))) {
+          return response({ error: "You can only synchronise availability for your assigned age groups" }, 403);
+        }
       }
 
       const synced = await syncCurrentSeasonEvents(adminClient, new Intl.DateTimeFormat("en-CA", {
