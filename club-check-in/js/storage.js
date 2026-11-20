@@ -11,10 +11,38 @@
  */
 
 function clearLegacyLocalData() {
+    let existed = false;
+
     try {
+        existed = localStorage.getItem("clubCheckInData") !== null;
         localStorage.removeItem("clubCheckInData");
+
+        const cleared = localStorage.getItem("clubCheckInData") === null;
+        const diagnostics = window.clubCheckInDiagnostics;
+
+        if (diagnostics && typeof diagnostics.info === "function") {
+            diagnostics.info(
+                "Legacy local storage check:",
+                existed ? "old cache was present" : "old cache was not present",
+                "|",
+                cleared ? "REMOVAL CONFIRMED" : "REMOVAL NOT CONFIRMED"
+            );
+        } else {
+            console.info(
+                "[CLUB CHECK-IN] Legacy local storage check:",
+                existed ? "old cache was present" : "old cache was not present",
+                "|",
+                cleared ? "REMOVAL CONFIRMED" : "REMOVAL NOT CONFIRMED"
+            );
+        }
     } catch (error) {
-        console.warn("Legacy local player data could not be cleared:", error);
+        const diagnostics = window.clubCheckInDiagnostics;
+
+        if (diagnostics && typeof diagnostics.warn === "function") {
+            diagnostics.warn("Legacy local storage could not be checked/cleared:", error.message);
+        } else {
+            console.warn("Legacy local player data could not be checked/cleared:", error);
+        }
     }
 }
 
