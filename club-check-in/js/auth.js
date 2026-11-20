@@ -13,6 +13,10 @@ let rememberedLoginAutoAttempted = false;
 
 async function showWelcome() {
     stopAppSessionTimeout();
+
+    // Remove player and attendance data whenever the app returns to login.
+    clearSensitiveAppData();
+
     currentAccessPIN = null;
     currentSeniorPIN = null;
     currentRole = null;
@@ -473,6 +477,9 @@ function getAssignedCoachAgeGroups() {
 }
 
 function clearPersonalSession() {
+    // A failed login must not leave a previous roster in memory.
+    clearSensitiveAppData();
+
     currentAccessPIN = null;
     currentSeniorPIN = null;
     currentPersonID = null;

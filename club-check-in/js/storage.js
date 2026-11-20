@@ -1,201 +1,51 @@
-
 /* =========================================================
    STORAGE / PERSISTENCE
    ========================================================= */
 
+/*
+ * Player and attendance information must only live in memory while an
+ * authorised session is active. Supabase is the source of truth.
+ *
+ * Keep the legacy function names because existing player/season workflows
+ * still call saveData(). They now only remove the old browser-side cache.
+ */
 
-/* =========================================================
-   LOAD SAVED DATA
-   ========================================================= */
+function clearLegacyLocalData() {
+    try {
+        localStorage.removeItem("clubCheckInData");
+    } catch (error) {
+        console.warn("Legacy local player data could not be cleared:", error);
+    }
+}
 
+function clearSensitiveAppData() {
+    players = {};
+
+    if (typeof dailyRegisters !== "undefined") {
+        dailyRegisters = {};
+    }
+
+    if (typeof attendanceRegisters !== "undefined") {
+        attendanceRegisters = {};
+    }
+
+    clearLegacyLocalData();
+}
+
+/*
+ * Compatibility: startup still calls loadSavedData(), but no personal data
+ * is restored from localStorage. The legacy cache is deleted instead.
+ */
 function loadSavedData() {
-
-    try {
-
-        const rawData =
-            localStorage.getItem("clubCheckInData");
-
-        if (rawData) {
-
-            const saved = JSON.parse(rawData);
-
-            if (
-                saved.players &&
-                typeof saved.players === "object"
-            ) {
-                players = saved.players;
-            }
-
-            if (
-                saved.dailyRegisters &&
-                typeof saved.dailyRegisters === "object"
-            ) {
-                dailyRegisters = saved.dailyRegisters;
-            }
-
-            if (
-                typeof saved.currentSeason === "string" &&
-                saved.currentSeason
-            ) {
-                currentSeason = saved.currentSeason;
-            }
-
-        }
-
-        // Ensure every age group has a player array.
-        ageGroups.forEach(ageGroup => {
-
-            if (!Array.isArray(players[ageGroup])) {
-                players[ageGroup] = [];
-            }
-
-        });
-
-        // Normalise player properties.
-        Object.values(players).forEach(ageGroupPlayers => {
-
-            if (!Array.isArray(ageGroupPlayers)) {
-                return;
-            }
-
-            ageGroupPlayers.forEach(player => {
-
-                if (
-                    typeof player.coachGmsSuggestion !== "boolean"
-                ) {
-                    player.coachGmsSuggestion =
-                        !!player.gms;
-                }
-
-                if (typeof player.archived !== "boolean") {
-                    player.archived = false;
-                }
-
-                if (typeof player.active !== "boolean") {
-                    player.active = !player.archived;
-                }
-
-                if (
-                    typeof player.lastAttendanceDate === "undefined"
-                ) {
-                    player.lastAttendanceDate = null;
-                }
-
-            });
-
-        });
-
-        if (
-            !dailyRegisters ||
-            typeof dailyRegisters !== "object" ||
-            Array.isArray(dailyRegisters)
-        ) {
-            dailyRegisters = {};
-        }
-
-        backfillLastAttendanceDates();
-} catch (error) {
-
-        console.error(
-            "Saved data could not be loaded:",
-            error
-        );
-
-    }
-
+    clearLegacyLocalData();
 }
 
-
-/* =========================================================
-   BACKFILL LAST ATTENDANCE DATES
-   ========================================================= */
-
-function backfillLastAttendanceDates() {
-
-    Object.keys(dailyRegisters).forEach(dateKey => {
-
-        const day = dailyRegisters[dateKey];
-
-        if (!day || typeof day !== "object") {
-            return;
-        }
-
-        Object.keys(day).forEach(ageGroup => {
-
-            const register = day[ageGroup];
-
-            if (
-                !register ||
-                !register.attendance ||
-                typeof register.attendance !== "object"
-            ) {
-                return;
-            }
-
-            Object.keys(register.attendance).forEach(playerID => {
-
-                if (register.attendance[playerID] !== true) {
-                    return;
-                }
-
-                const player = findPlayerByID(playerID);
-
-                if (!player) {
-                    return;
-                }
-
-                if (
-                    !player.lastAttendanceDate ||
-                    dateKey > player.lastAttendanceDate
-                ) {
-                    player.lastAttendanceDate = dateKey;
-                }
-
-            });
-
-        });
-
-    });
-
-}
-
-
-/* =========================================================
-   SAVE DATA
-   ========================================================= */
-
+/*
+ * Compatibility: existing workflows call saveData() after successful
+ * Supabase updates. Do not persist the in-memory roster to localStorage.
+ */
 function saveData() {
-
-    try {
-
-        const saved = {
-
-            players:
-                players,
-
-            dailyRegisters:
-                dailyRegisters,
-
-            currentSeason:
-                currentSeason
-
-        };
-
-        localStorage.setItem(
-            "clubCheckInData",
-            JSON.stringify(saved)
-        );
-} catch (error) {
-
-        console.error(
-            "Failed to save local data:",
-            error
-        );
-
-        throw error;
-
-    }
-
+    clearLegacyLocalData();
 }
 
 

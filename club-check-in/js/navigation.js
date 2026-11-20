@@ -106,6 +106,11 @@ async function logout() {
         stopAppSessionTimeout();
     }
 
+    // Clear sensitive data immediately, without waiting for the network
+    // session-revocation request to finish.
+    if (typeof clearSensitiveAppData === "function") {
+        clearSensitiveAppData();
+    }
 
     if (typeof revokePersonalSession === "function") {
         await revokePersonalSession();
