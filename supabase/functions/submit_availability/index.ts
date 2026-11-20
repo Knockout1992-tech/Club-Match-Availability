@@ -88,7 +88,7 @@ async function writeSecurityAudit(
   }
 }
 
-async function authenticateParent(supabase: any, parentName: string, pin: string, allowCreate: boolean) {
+async function authenticateParent(supabase: any, parentName: string, pin: string, allowCreate: boolean): Promise<any> {
   const normalisedName = normalise(parentName);
   let { data: account, error } = await supabase.from("match_parent_access")
     .select("id,parent_name,pin_salt,pin_hash,failed_attempts,locked_until")
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
   }
 
   let submissionId: number | null = null;
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: any = null;
 
   try {
     const body = await req.json();
