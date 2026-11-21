@@ -316,7 +316,7 @@ async function lookupPersonalLoginName() {
         if (error?.message === "PIN sign-in is required first on this installation." ||
             error?.message === "This account is not linked to this installation.") {
             errorBox.textContent =
-                "Your account is already registered on another device. Please contact your Club Admin.";
+                "This account is not authorised on this installation. Your account has not been linked to this device, so we cannot verify your PIN. Please contact your Club Check-In administrator to request access. Your PIN has not been checked.";
         } else {
             errorBox.textContent =
                 "Unable to check your account right now. Please check your connection and try again. Your PIN has not been checked.";
