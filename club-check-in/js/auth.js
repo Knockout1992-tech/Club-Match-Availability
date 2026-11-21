@@ -313,8 +313,14 @@ async function lookupPersonalLoginName() {
         // Do not fall back to the restricted browser RPC or expose account data.
         // The personal PIN remains available when account lookup succeeds but
         // passkey authentication itself cannot be completed.
-        errorBox.textContent =
-            "Unable to check your account right now. Please check your connection and try again. Your PIN has not been checked.";
+        if (error?.message === "PIN sign-in is required first on this installation." ||
+            error?.message === "This account is not linked to this installation.") {
+            errorBox.textContent =
+                "Your account is already registered on another device. Please contact your Club Admin.";
+        } else {
+            errorBox.textContent =
+                "Unable to check your account right now. Please check your connection and try again. Your PIN has not been checked.";
+        }
     }
 }
 
