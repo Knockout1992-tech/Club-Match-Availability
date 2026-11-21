@@ -307,37 +307,14 @@ async function lookupPersonalLoginName() {
             renderPersonalLogin("Biometric sign-in was not completed. Please use your personal PIN instead.");
         }
     } catch (error) {
-        console.warn("Passkey-first account lookup failed; falling back to PIN login:", error);
+        console.warn("Personal account lookup could not be completed:", error);
 
-        // Passkey service failure must never block the normal PIN login.
-        // Resolve the account through the existing login-status RPC instead.
-        try {
-            const { data, error: lookupError } = await supabaseClient.rpc(
-                "get_personal_pin_login_status",
-                { supplied_name: name }
-            );
-
-            if (lookupError) throw lookupError;
-            if (!data?.success) {
-                errorBox.textContent = data?.message || "Name not recognised. Please check your name and try again.";
-                return;
-            }
-
-            personalLoginAccount = {
-                person_id: data.person_id,
-                display_name: data.display_name,
-                pin_setup_required: data.pin_setup_required === true,
-                protected_user: data.protected_user === true
-            };
-
-            renderPersonalLogin(
-                "Biometric sign-in is temporarily unavailable. Please continue with your PIN."
-            );
-        } catch (fallbackError) {
-            console.error("PIN account lookup failed:", fallbackError);
-            errorBox.textContent =
-                "Unable to check your account. Please check your connection and try again.";
-        }
+        // Account lookup is performed by the trusted passkey Edge Function.
+        // Do not fall back to the restricted browser RPC or expose account data.
+        // The personal PIN remains available when account lookup succeeds but
+        // passkey authentication itself cannot be completed.
+        errorBox.textContent =
+            "Unable to check your account right now. Please check your connection and try again. Your PIN has not been checked.";
     }
 }
 

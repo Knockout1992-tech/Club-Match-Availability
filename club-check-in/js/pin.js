@@ -133,13 +133,10 @@ if (supabaseError) {
 }
 
 if (data !== true) {
-    const { data: locked } = await supabaseClient.rpc(
-        "get_installation_access_lock_status",
-        { supplied_installation_id: getInstallationID() }
-    );
-    error.textContent = locked === true
-        ? "This installation is locked. Contact an Admin to reset it."
-        : "Incorrect PIN.";
+    // The lock-status RPC is intentionally not exposed to browser roles.
+    // Use a combined message rather than attempting a restricted lookup.
+    error.textContent =
+        "Incorrect PIN. If the installation has reached its lock limit, contact an Admin to reset it.";
     return;
 }
 
