@@ -225,19 +225,5 @@ async function toggleFirstAiderActive(id, active) {
     await showFirstAiderManagement();
 }
 
-async function clearDummyFirstAiderData() {
-    if (!requireSystemAdminSession()) return;
-    if (!await appConfirm("This permanently deletes only the clearly marked DUMMY first-aider sample records. Real volunteer records will not be touched.", "Clear sample data", "Clear DUMMY data")) return;
-    const { data, error } = await supabaseClient.rpc("clear_dummy_first_aider_data", {
-        system_admin_pin: currentSystemAdminPIN
-    });
-    if (error || !data || data.success !== true) {
-        await appAlert("The DUMMY sample data could not be cleared.", "Cleanup failed", "danger");
-        return;
-    }
-    await appAlert("DUMMY sample records cleared: " + Number(data.deleted || 0) + ".", "Sample data cleared", "success");
-    await showFirstAiderManagement();
-}
-
 // Explicitly expose the entry point used by the System Admin button.
 window.showFirstAiderManagement = showFirstAiderManagement;
