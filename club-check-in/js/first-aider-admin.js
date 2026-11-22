@@ -82,10 +82,10 @@ function renderFirstAiderManagement() {
             '<div class="fa-volunteer-heading"><div><strong>' + firstAiderEscape(volunteer.name) + '</strong>' +
             (volunteer.is_dummy ? ' <span class="fa-dummy">DUMMY</span>' : '') +
             '<div class="fa-volunteer-state">' + (volunteer.active ? "Active" : "Inactive") + '</div></div>' +
-            (!volunteer.is_dummy ? '<div class="fa-volunteer-actions">' +
+            '<div class="fa-volunteer-actions">' +
                 '<button class="secondary-button small-button" onclick="editFirstAider(' + Number(volunteer.id) + ')">Edit</button>' +
                 '<button class="secondary-button small-button" onclick="toggleFirstAiderActive(' + Number(volunteer.id) + ',' + (!volunteer.active) + ')">' +
-                (volunteer.active ? "Deactivate" : "Reactivate") + '</button></div>' : '') +
+                (volunteer.active ? "Deactivate" : "Reactivate") + '</button></div>' +
             '</div><div class="fa-assignment-summary">' + assignmentText + '</div></article>';
     }).join("");
 
@@ -118,9 +118,8 @@ function renderFirstAiderManagement() {
         '<p class="subtitle">An age group is covered only when it has an active first-aider assigned as its main group. Additional/shared cover is shown separately and does not close a gap.</p>' +
         '<div class="fa-coverage-grid">' + (coverageHtml || '<div class="empty">No active age groups found.</div>') + '</div></section>' +
         '<section class="fa-section"><div class="retention-heading"><h3>First-aider volunteers</h3><button class="primary-button small-button" onclick="showFirstAiderForm()">Add first aider</button></div>' +
-        (dummyCount ? '<div class="fa-dummy-note"><b>Sample records are present.</b> DUMMY entries are demonstration data only and are not real volunteers. Use the clear button below when finished reviewing.</div>' : '') +
+        (dummyCount ? '<div class="fa-dummy-note"><b>Sample records are present.</b> DUMMY entries are demonstration data only. They can be edited here and are cleared from the System Admin DUMMY Data tool.</div>' : '') +
         '<div class="fa-volunteer-list">' + (volunteerHtml || '<div class="empty">No first-aider volunteers have been added.</div>') + '</div>' +
-        (dummyCount ? '<div class="fa-actions"><button class="red-button small-button" onclick="clearDummyFirstAiderData()">Clear DUMMY sample data</button></div>' : '') +
         '</section></div>'
     );
 }
@@ -169,13 +168,15 @@ function showFirstAiderForm(volunteer) {
 function editFirstAider(id) {
     if (!requireSystemAdminSession() || !firstAiderAdminData) return;
     const volunteer = (firstAiderAdminData.volunteers || []).find(v => Number(v.id) === Number(id));
-    if (!volunteer || volunteer.is_dummy) return;
+    if (!volunteer) return;
     showFirstAiderForm(volunteer);
 }
 
 async function saveFirstAider(id) {
     if (!requireSystemAdminSession()) return;
-    const name = (document.getElementById("fa-name")?.value || "").trim();
+    let name = (document.getElementById("fa-name")?.value || "").trim();
+    const existingVolunteer = id === null ? null : (firstAiderAdminData?.volunteers || []).find(v => Number(v.id) === Number(id));
+    if (existingVolunteer?.is_dummy && !/^DUMMY\b/i.test(name)) name = "DUMMY - " + name;
     const mainGroup = Number(document.getElementById("fa-main-group")?.value);
     const mainPitch = (document.getElementById("fa-main-pitch")?.value || "").trim();
     if (!name || name.length > 80 || !mainGroup) {
