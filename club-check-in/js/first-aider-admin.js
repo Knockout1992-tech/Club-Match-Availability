@@ -62,7 +62,7 @@ function renderFirstAiderManagement() {
             ? item.shared.map(x => firstAiderEscape(x.name) + (x.pitch ? " — " + firstAiderEscape(x.pitch) : "")).join(", ")
             : "None";
         return '<article class="fa-coverage-card">' +
-            '<div class="fa-coverage-top"><strong>' + firstAiderEscape(groupLabel(item.group)) + '</strong>' +
+            '<div class="fa-coverage-top"><strong>' + firstAiderEscape(firstAiderGroupLabel(item.group)) + '</strong>' +
             '<span class="' + (item.main.length ? "fa-status-covered" : "fa-status-gap") + '">' + status + '</span></div>' +
             '<p><b>Main cover:</b> ' + mainText + '</p>' +
             '<p><b>Additional/shared cover:</b> ' + sharedText + '</p>' +
@@ -125,7 +125,7 @@ function renderFirstAiderManagement() {
     );
 }
 
-function groupLabel(group) {
+function firstAiderGroupLabel(group) {
     return group.display_name || group.age_group || "";
 }
 
@@ -140,11 +140,11 @@ function showFirstAiderForm(volunteer) {
     const main = assignments.find(a => a.is_main);
     const mainId = main ? Number(main.age_group_id) : Number(groups[0].id);
     const options = groups.map(g => '<option value="' + Number(g.id) + '" ' +
-        (Number(g.id) === mainId ? "selected" : "") + '>' + firstAiderEscape(groupLabel(g)) + '</option>').join("");
+        (Number(g.id) === mainId ? "selected" : "") + '>' + firstAiderEscape(firstAiderGroupLabel(g)) + '</option>').join("");
     const additionalRows = groups.filter(g => Number(g.id) !== mainId).map(g => {
         const existing = assignments.find(a => Number(a.age_group_id) === Number(g.id) && !a.is_main);
         return '<div class="fa-extra-row"><label><input type="checkbox" id="fa-extra-' + Number(g.id) + '" ' +
-            (existing ? "checked" : "") + '> ' + firstAiderEscape(groupLabel(g)) + '</label>' +
+            (existing ? "checked" : "") + '> ' + firstAiderEscape(firstAiderGroupLabel(g)) + '</label>' +
             '<input type="text" id="fa-pitch-' + Number(g.id) + '" maxlength="80" placeholder="Optional pitch" value="' +
             firstAiderEscape(existing ? existing.pitch || "" : "") + '"></div>';
     }).join("");
