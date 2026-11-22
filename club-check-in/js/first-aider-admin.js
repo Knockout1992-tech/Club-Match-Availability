@@ -237,3 +237,6 @@ async function clearDummyFirstAiderData() {
     await appAlert("DUMMY sample records cleared: " + Number(data.deleted || 0) + ".", "Sample data cleared", "success");
     await showFirstAiderManagement();
 }
+
+// Explicitly expose the entry point used by the System Admin button.
+window.showFirstAiderManagement = showFirstAiderManagement;
