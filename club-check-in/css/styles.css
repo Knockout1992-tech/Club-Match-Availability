@@ -1181,60 +1181,17 @@ h2 {
 }
 
 
-/* First-Aider editor: use the Season Planner form language and spacing */
+/* First-aider editor: simple age-group selections only */
 .fa-editor-page { max-width:760px; margin:0 auto; }
 .fa-editor-page .sp-form-panel { padding:20px; }
 .fa-editor-page .fa-additional-section { margin-top:24px; }
-.fa-editor-page .fa-additional-list { display:grid; gap:10px; }
-.fa-editor-page .fa-additional-row {
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
-    align-items:center;
-    gap:14px;
-    padding:12px 14px;
-    border:1px solid #e5e5e5;
-    border-radius:9px;
-    background:#fff;
-}
-.fa-editor-page .fa-additional-row .sp-group-choice {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    min-width:0;
-    padding:7px 0;
-}
-.fa-editor-page .fa-additional-row .sp-group-choice input[type=checkbox] {
-    width:20px;
-    height:20px;
-    flex:0 0 20px;
-    margin:0;
-    accent-color:#111;
-}
-.fa-editor-page .fa-additional-pitch { margin:0 !important; }
-.fa-editor-page .fa-additional-pitch label {
-    display:block;
-    margin-bottom:6px;
-    color:#555;
-    font-size:13px;
-}
-.fa-editor-page .sp-editor-actions {
-    display:flex;
-    flex-direction:column;
-    align-items:stretch;
-    gap:10px;
-    margin-top:22px;
-}
-.fa-editor-page .sp-editor-actions .secondary-button { align-self:flex-start; }
-@media(max-width:600px) {
-    .fa-editor-page .sp-form-panel { padding:15px; }
-    .fa-editor-page .fa-additional-row {
-        grid-template-columns:1fr;
-        gap:5px;
-        padding:11px 12px;
-    }
-    .fa-editor-page .fa-additional-pitch { padding-left:30px; }
-}
- 
+.fa-editor-page .fa-additional-list { display:grid; gap:0; }
+.fa-editor-page .fa-additional-row { display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border,#ddd); cursor:pointer; font-size:14px; }
+.fa-editor-page .fa-additional-row input[type=checkbox] { width:18px; height:18px; margin:0; flex:0 0 auto; }
+.fa-editor-page .sp-editor-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+.fa-editor-page .sp-editor-actions button { width:auto; min-width:140px; }
+@media(max-width:560px) { .fa-editor-page .sp-form-panel { padding:15px; } .fa-editor-page .sp-editor-actions { flex-direction:column; } .fa-editor-page .sp-editor-actions button { width:100%; } }
+
 /* Dedicated full-page event editor */
 .sp-event-editor-page { max-width:760px; margin:0 auto; }
 .sp-editor-page-heading { display:flex; align-items:flex-start; justify-content:space-between; margin:8px 0 18px; }
@@ -1651,3 +1608,14 @@ select {
 .attendance-insights-empty{padding:18px;border:1px dashed #ccc;border-radius:9px;background:#fafafa;color:#666;text-align:center;font-size:13px}
 .attendance-insights-footnote{padding:0 2px 4px;color:#888;font-size:10px;line-height:1.5}
 @media(max-width:520px){.attendance-overview{grid-template-columns:1fr}.attendance-overview-side{grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px}.attendance-overview-side div{display:flex;flex-direction:column;gap:2px}.attendance-overview-side strong{font-size:17px}.attendance-week-row{grid-template-columns:82px minmax(35px,1fr) 32px 42px;gap:6px}.attendance-week-label{font-size:9px}.attendance-insights-section{padding:13px}.attendance-filter-btn{flex:1 1 auto;padding:7px 8px;font-size:11px}.attendance-custom-range{align-items:stretch}.attendance-custom-apply{flex:1 1 100%}}
+
+/* First-aider editor: simple age-group selections only */
+.fa-editor-page { max-width:760px; margin:0 auto; }
+.fa-editor-page .sp-form-panel { padding:20px; }
+.fa-editor-page .fa-additional-section { margin-top:24px; }
+.fa-editor-page .fa-additional-list { display:grid; gap:0; }
+.fa-editor-page .fa-additional-row { display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border,#ddd); cursor:pointer; font-size:14px; }
+.fa-editor-page .fa-additional-row input[type=checkbox] { width:18px; height:18px; margin:0; flex:0 0 auto; }
+.fa-editor-page .sp-editor-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+.fa-editor-page .sp-editor-actions button { width:auto; min-width:140px; }
+@media(max-width:560px) { .fa-editor-page .sp-form-panel { padding:15px; } .fa-editor-page .sp-editor-actions { flex-direction:column; } .fa-editor-page .sp-editor-actions button { width:100%; } }
