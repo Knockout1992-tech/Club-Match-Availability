@@ -135,33 +135,59 @@ function showFirstAiderForm(volunteer) {
         appAlert("There are no active age groups available.", "No age groups", "warning");
         return;
     }
+
     const assignments = volunteer ? (volunteer.assignments || []) : [];
     const main = assignments.find(a => a.is_main);
     const mainId = main ? Number(main.age_group_id) : Number(groups[0].id);
     const options = groups.map(g => '<option value="' + Number(g.id) + '" ' +
-        (Number(g.id) === mainId ? "selected" : "") + '>' + firstAiderEscape(firstAiderGroupLabel(g)) + '</option>').join("");
+        (Number(g.id) === mainId ? "selected" : "") + '>' +
+        firstAiderEscape(firstAiderGroupLabel(g)) + '</option>').join("");
+
     const additionalRows = groups.filter(g => Number(g.id) !== mainId).map(g => {
-        const existing = assignments.find(a => Number(a.age_group_id) === Number(g.id) && !a.is_main);
-        return '<div class="fa-extra-row"><label><input type="checkbox" id="fa-extra-' + Number(g.id) + '" ' +
-            (existing ? "checked" : "") + '> ' + firstAiderEscape(firstAiderGroupLabel(g)) + '</label>' +
-            '<input type="text" id="fa-pitch-' + Number(g.id) + '" maxlength="80" placeholder="Optional pitch" value="' +
-            firstAiderEscape(existing ? existing.pitch || "" : "") + '"></div>';
+        const existing = assignments.find(a =>
+            Number(a.age_group_id) === Number(g.id) && !a.is_main
+        );
+        const groupId = Number(g.id);
+        return '<div class="fa-additional-row">' +
+            '<label class="sp-group-choice" for="fa-extra-' + groupId + '">' +
+            '<input type="checkbox" id="fa-extra-' + groupId + '" ' +
+            (existing ? "checked" : "") + '>' +
+            '<strong>' + firstAiderEscape(firstAiderGroupLabel(g)) + '</strong></label>' +
+            '<div class="form-group fa-additional-pitch">' +
+            '<label for="fa-pitch-' + groupId + '">Pitch (optional)</label>' +
+            '<input type="text" id="fa-pitch-' + groupId + '" maxlength="80" placeholder="e.g. Pitch 2" value="' +
+            firstAiderEscape(existing ? existing.pitch || "" : "") + '">' +
+            '</div></div>';
     }).join("");
+
     renderShell(
-        '<div class="card system-admin-home fa-admin">' +
+        '<div class="card season-planner-shell sp-event-editor-page fa-editor-page">' +
         '<button class="back-button" onclick="renderFirstAiderManagement()">← First-Aider Management</button>' +
-        '<h2>' + (volunteer ? "Edit first aider" : "Add first aider") + '</h2>' +
-        '<div class="subtitle">Each volunteer has one main age group. Other selected groups are additional/shared cover.</div>' +
-        '<div class="fa-field"><label for="fa-name">Volunteer name</label><input id="fa-name" type="text" maxlength="80" autocomplete="off" value="' +
-        firstAiderEscape(volunteer ? volunteer.name : "") + '" placeholder="Enter volunteer name"></div>' +
-        '<div class="fa-form-grid"><div class="fa-field"><label for="fa-main-group">Main age group</label><select id="fa-main-group">' + options + '</select></div>' +
-        '<div class="fa-field"><label for="fa-main-pitch">Main group pitch (optional)</label><input id="fa-main-pitch" type="text" maxlength="80" value="' +
-        firstAiderEscape(main ? main.pitch || "" : "") + '" placeholder="e.g. Pitch 1"></div></div>' +
-        '<div class="fa-field"><label>Additional/shared age groups and optional pitch</label>' +
-        (additionalRows || '<div class="subtitle">No other active age groups.</div>') + '</div>' +
-        '<div class="fa-actions"><button class="primary-button" onclick="saveFirstAider(' + (volunteer ? Number(volunteer.id) : "null") + ')">Save first aider</button>' +
-        '<button class="secondary-button" onclick="renderFirstAiderManagement()">Cancel</button></div>' +
-        '</div>'
+        '<div class="sp-editor-page-heading"><div><h2>' +
+        (volunteer ? "Edit first aider" : "Add first aider") +
+        '</h2><p>Set the volunteer’s main age group and any additional/shared cover.</p></div></div>' +
+        '<section class="sp-form-panel">' +
+        '<div class="form-group"><label for="fa-name">Volunteer name</label>' +
+        '<input id="fa-name" type="text" maxlength="80" autocomplete="off" value="' +
+        firstAiderEscape(volunteer ? volunteer.name : "") +
+        '" placeholder="Enter volunteer name"></div>' +
+        '<div class="form-group"><label for="fa-main-group">Main age group</label>' +
+        '<select id="fa-main-group">' + options + '</select>' +
+        '</div>' +
+        '<div class="form-group"><label for="fa-main-pitch">Main group pitch (optional)</label>' +
+        '<input id="fa-main-pitch" type="text" maxlength="80" value="' +
+        firstAiderEscape(main ? main.pitch || "" : "") +
+        '" placeholder="e.g. Pitch 1"></div>' +
+        '<div class="form-group fa-additional-section"><label>Additional/shared cover</label>' +
+        '<p class="sp-field-hint">Select each additional age group and add its pitch if known.</p>' +
+        '<div class="fa-additional-list">' +
+        (additionalRows || '<div class="sp-empty">No other active age groups.</div>') +
+        '</div></div>' +
+        '<div class="sp-editor-actions">' +
+        '<button class="primary-button" onclick="saveFirstAider(' +
+        (volunteer ? Number(volunteer.id) : "null") + ')">Save first aider</button>' +
+        '<button class="secondary-button" onclick="renderFirstAiderManagement()">Cancel</button>' +
+        '</div></section></div>'
     );
 }
 
