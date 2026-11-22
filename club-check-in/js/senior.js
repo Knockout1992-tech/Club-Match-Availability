@@ -211,7 +211,10 @@ async function showUserManagement() {
                 return `
                     <div class="info-box user-management-card">
                         <div class="user-management-header">
-                            <strong>${escapeHTML(user.name)}</strong>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                                <strong>${escapeHTML(user.name)}</strong>
+                                ${roles.includes("coach") && !user.protected_user ? `<button type="button" class="user-action-button user-action-primary invite-coach-button" data-user-index="${index}">Invite Coach</button>` : ""}
+                            </div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
                                 <span class="user-status ${user.active ? "user-status-active" : "user-status-inactive"}">${user.active ? "Active" : "Inactive"}</span>
                                 <span class="user-status ${device.activeCount > 0 ? "user-status-active" : "user-status-inactive"}">${device.activeCount > 0 ? "Device Registered" : "No Active Device"}</span>
@@ -237,6 +240,13 @@ async function showUserManagement() {
             }).join("")}
         </div>
     `);
+
+    document.querySelectorAll(".invite-coach-button").forEach(button => {
+        button.addEventListener("click", () => {
+            const user = users[Number(button.dataset.userIndex)];
+            if (user) showCoachInvitationForUser(user);
+        });
+    });
 
     document.querySelectorAll(".edit-user-access-button").forEach(button => {
         button.addEventListener("click", () => {
@@ -268,6 +278,85 @@ async function showUserManagement() {
     });
 }
 
+
+// =========================================================
+// COACH INVITATION (PER USER)
+// =========================================================
+
+function showCoachInvitationForUser(user) {
+    if (currentRole !== "senior" || !currentSeniorPIN) {
+        appAlert("Admin access is required to create a Coach invitation.", "Access denied", "danger");
+        return;
+    }
+
+    if (!user || !Array.isArray(user.roles) || !user.roles.includes("coach")) {
+        appAlert("Select an approved Coach account to create an invitation.", "Not a Coach", "warning");
+        return;
+    }
+
+    const coachName = String(user.name || "").trim();
+    const accessLink = "https://rhrufc-mini.pages.dev/club-check-in/";
+    const initialAccessCode = "[INITIAL ACCESS CODE]";
+    const sharedCoachPIN = "[SHARED COACH SETUP PIN]";
+
+    const message = `Hi ${coachName},
+
+You have been invited to use Rushden & Higham RUFC Club Check-In.
+
+Initial access link:
+${accessLink}
+
+Registered name: ${coachName}
+Initial access code: ${initialAccessCode}
+Shared Coach setup PIN: ${sharedCoachPIN}
+
+Instructions for the Coach
+1. Open the link above and enter the name registered by the Admin.
+2. For first-time setup, enter the shared Coach setup PIN.
+3. Create and confirm a personal PIN (6–12 digits). Keep it private.
+4. If asked to approve or register this device, contact the Admin before continuing.
+5. Sign in with your personal PIN. Your assigned age group(s) will be available.`;
+
+    renderShell(`
+        <div class="card">
+            <button class="back-button" onclick="showUserManagement()">← Back to User Management</button>
+            <h2>Invite Coach</h2>
+            <p class="subtitle">Invitation for <strong>${escapeHTML(coachName)}</strong></p>
+            <div class="info-box">
+                <strong>Invitation details</strong>
+                <p><strong>Coach name:</strong> ${escapeHTML(coachName)}</p>
+                <p><strong>Initial access code:</strong> ${initialAccessCode}</p>
+                <p><strong>Shared Coach setup PIN:</strong> ${sharedCoachPIN}</p>
+                <small>Codes are placeholders for now. Replace them when the access-code workflow is ready.</small>
+            </div>
+            <div class="info-box">
+                <strong>Message to send</strong>
+                <textarea id="coachInviteMessage" rows="18" readonly style="width:100%;box-sizing:border-box;resize:vertical">${escapeHTML(message)}</textarea>
+                <button type="button" class="primary-button" onclick="copyCoachInvitationMessage()" style="width:100%;margin-top:10px">Copy Invitation Message</button>
+            </div>
+        </div>
+    `);
+}
+
+async function copyCoachInvitationMessage() {
+    const field = document.getElementById("coachInviteMessage");
+    if (!field) return;
+
+    try {
+        field.focus();
+        field.select();
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(field.value);
+        } else {
+            const copied = document.execCommand("copy");
+            if (!copied) throw new Error("Copy command was not accepted.");
+        }
+        await appAlert("Invitation message copied. Replace the code placeholders before sending.", "Invitation copied", "success");
+    } catch (error) {
+        console.error("Coach invitation copy failed:", error);
+        await appAlert("Copy was blocked. Select the invitation text and copy it manually.", "Unable to copy", "warning");
+    }
+}
 
 // =========================================================
 // USER ROLE AND AGE-GROUP ASSIGNMENTS
