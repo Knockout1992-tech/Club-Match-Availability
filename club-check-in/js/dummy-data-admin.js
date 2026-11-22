@@ -8,7 +8,7 @@ let dummyDataSummary = null;
 const dummyDataLabels = [
     ["players", "Players"],
     ["attendance_records", "Attendance records linked to DUMMY players"],
-    ["attendance_registers_affected", "Attendance registers affected"],
+    ["attendance_registers_affected", "Attendance registers affected (retained)"],
     ["match_fixtures", "Match fixtures"],
     ["match_submissions", "Parent submissions"],
     ["match_availability", "Match availability responses"],
@@ -35,7 +35,7 @@ async function showDummyDataManagement() {
 
 function renderDummyDataManagement() {
     if (!requireSystemAdminSession() || !dummyDataSummary) return;
-    const total = dummyDataLabels.reduce((sum, item) => sum + Number(dummyDataSummary[item[0]] || 0), 0);
+    const total = dummyDataLabels.filter(item => item[0] !== "attendance_registers_affected").reduce((sum, item) => sum + Number(dummyDataSummary[item[0]] || 0), 0);
     const rows = dummyDataLabels.map(item => {
         const count = Number(dummyDataSummary[item[0]] || 0);
         return '<div class="dummy-data-row"><span>' + escapeHTML(item[1]) +
@@ -60,8 +60,8 @@ function renderDummyDataManagement() {
         '<div class="dummy-data-list">' + rows +
         '<div class="dummy-data-row"><span><b>Total selected operational records</b></span><strong>' + total.toLocaleString("en-GB") + '</strong></div>' +
         '</div>' +
-        '<div class="dummy-data-protected"><b>Protected and not deleted</b><br>User and Parent accounts, access credentials, installations, sessions, age-group configuration, personal-data cases, security logs, audit history, retention policies, retention runs and retention holds.</div>' +
-        '<div class="dummy-data-warning"><b>Safety checks</b><br>The cleanup runs as one database transaction. Active retention holds, a current DUMMY season, genuine attendance in a DUMMY season, or genuine responses linked to a DUMMY parent/fixture will stop the entire cleanup. Mixed attendance registers are retained and their historical totals recalculated. Genuine player and parent records are not selected by name matching alone.</div>' +
+        '<div class="dummy-data-protected"><b>Protected and not deleted</b><br>User and Parent accounts, access credentials, installations, sessions, age-group configuration, personal-data cases, security logs, audit history, retention policies, retention runs and retention holds. DUMMY records found in protected account/case fields: ' + Number(dummyDataSummary.protected_access_and_case_records || 0) + '. DUMMY age-group configuration records: ' + Number(dummyDataSummary.protected_age_group_configuration || 0) + '.</div>' +
+        '<div class="dummy-data-warning"><b>Safety checks</b><br>The cleanup runs as one database transaction. Active retention holds, a current DUMMY season, genuine attendance in a DUMMY season, or genuine responses linked to a DUMMY parent/fixture will stop the entire cleanup. Attendance registers are retained; historical totals for mixed registers are recalculated after DUMMY attendance rows are removed. Genuine player and parent records are not selected by name matching alone.</div>' +
         '<div class="dummy-data-actions">' +
         '<button class="secondary-button" onclick="showDummyDataManagement()">Refresh preview</button>' +
         '<button class="red-button" onclick="clearAllDummyData()" ' + (total ? '' : 'disabled') + '>Clear all DUMMY data</button>' +
@@ -71,7 +71,7 @@ function renderDummyDataManagement() {
 
 async function clearAllDummyData() {
     if (!requireSystemAdminSession() || !dummyDataSummary) return;
-    const total = dummyDataLabels.reduce((sum, item) => sum + Number(dummyDataSummary[item[0]] || 0), 0);
+    const total = dummyDataLabels.filter(item => item[0] !== "attendance_registers_affected").reduce((sum, item) => sum + Number(dummyDataSummary[item[0]] || 0), 0);
     if (!total) return;
 
     const confirmed = await appConfirm(
