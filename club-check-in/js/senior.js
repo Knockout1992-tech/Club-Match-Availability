@@ -292,30 +292,66 @@ function showUserInvitationForUser(user) {
         appAlert("Select a valid user account to create an invitation.", "User not found", "warning");
         return;
     }
+
     const userName = String(user.name || "").trim();
     const accessLink = "https://rhrufc-mini.pages.dev/club-check-in/";
-    const initialAccessCode = "[INITIAL ACCESS CODE]";
-    const sharedCoachPIN = "[SHARED COACH SETUP PIN]";
-    const message = `Hi ${userName},\n\nYou have been invited to use Rushden & Higham RUFC Club Check-In.\n\nInitial access link:\n${accessLink}\n\nRegistered name: ${userName}\nInitial access code: ${initialAccessCode}\nShared Coach setup PIN: ${sharedCoachPIN}\n\nInstructions for the User\n1. Open the link above and enter the name registered by the Admin.\n2. For first-time setup, enter the shared Coach setup PIN.\n3. Create and confirm a personal PIN (6–12 digits). Keep it private.\n4. If asked to approve or register this device, contact the Admin before continuing.\n5. Sign in with your personal PIN. Your assigned age group(s) will be available.`;
+
     renderShell(`
         <div class="card">
             <button class="back-button" onclick="showUserManagement()">← Back to User Management</button>
             <h2>Invite User</h2>
             <p class="subtitle">Invitation for <strong>${escapeHTML(userName)}</strong></p>
+
             <div class="info-box">
-                <strong>Invitation details</strong>
-                <p><strong>User name:</strong> ${escapeHTML(userName)}</p>
-                <p><strong>Initial access code:</strong> ${initialAccessCode}</p>
-                <p><strong>Shared Coach setup PIN:</strong> ${sharedCoachPIN}</p>
-                <small>Codes are placeholders for now. Replace them when the access-code workflow is ready.</small>
+                <strong>Access details</strong>
+                <p><strong>Registered name:</strong> ${escapeHTML(userName)}</p>
+                <label for="inviteInitialAccessCode">Initial access code</label>
+                <input type="text" id="inviteInitialAccessCode" placeholder="Enter initial access code" autocomplete="off">
+                <label for="inviteSharedSetupPIN" style="display:block;margin-top:10px;">Shared setup PIN</label>
+                <input type="text" id="inviteSharedSetupPIN" placeholder="Enter shared setup PIN" autocomplete="off">
+                <button type="button" class="primary-button" onclick="generateUserInvitationMessage()" style="width:100%;margin-top:12px">Generate / Update Invitation</button>
             </div>
+
             <div class="info-box">
                 <strong>Message to send</strong>
-                <textarea id="coachInviteMessage" rows="18" readonly style="width:100%;box-sizing:border-box;resize:vertical">${escapeHTML(message)}</textarea>
+                <textarea id="coachInviteMessage" rows="12" readonly style="width:100%;box-sizing:border-box;resize:vertical">${escapeHTML("Enter the access code and shared setup PIN above, then select Generate / Update Invitation.")}</textarea>
                 <button type="button" class="primary-button" onclick="copyCoachInvitationMessage()" style="width:100%;margin-top:10px">Copy Invitation Message</button>
             </div>
+            <input type="hidden" id="inviteRegisteredUserName" value="${escapeHTML(userName)}">
+            <input type="hidden" id="inviteAccessLink" value="${accessLink}">
         </div>
     `);
+}
+
+function generateUserInvitationMessage() {
+    const userName = document.getElementById("inviteRegisteredUserName")?.value || "";
+    const accessLink = document.getElementById("inviteAccessLink")?.value || "";
+    const initialAccessCode = document.getElementById("inviteInitialAccessCode")?.value.trim() || "";
+    const sharedSetupPIN = document.getElementById("inviteSharedSetupPIN")?.value.trim() || "";
+    const messageField = document.getElementById("coachInviteMessage");
+
+    if (!initialAccessCode || !sharedSetupPIN) {
+        appAlert("Enter both the initial access code and shared setup PIN before generating the invitation.", "Missing access details", "warning");
+        return;
+    }
+
+    const message = `Hi ${userName},
+
+You have been invited to use Rushden & Higham RUFC Club Check-In.
+
+Open: ${accessLink}
+Registered name: ${userName}
+Initial access code: ${initialAccessCode}
+Shared setup PIN: ${sharedSetupPIN}
+
+To get started:
+1. Open the link and enter your registered name and initial access code.
+2. Enter the shared setup PIN when prompted.
+3. Create your personal PIN (6–12 digits) and keep it private.
+4. If device approval is requested, contact the Admin.
+5. Sign in using your personal PIN.`;
+
+    if (messageField) messageField.value = message;
 }
 
 async function copyCoachInvitationMessage() {
