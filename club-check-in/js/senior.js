@@ -213,7 +213,7 @@ async function showUserManagement() {
                         <div class="user-management-header">
                             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
                                 <strong>${escapeHTML(user.name)}</strong>
-                                ${roles.includes("coach") && !user.protected_user ? `<button type="button" class="user-action-button user-action-primary invite-user-button" data-user-index="${index}">Invite User</button>` : ""}
+                                ${!user.protected_user ? `<button type="button" class="user-action-button user-action-primary invite-user-button" data-user-index="${index}">Invite User</button>` : ""}
                             </div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
                                 <span class="user-status ${user.active ? "user-status-active" : "user-status-inactive"}">${user.active ? "Active" : "Inactive"}</span>
@@ -288,20 +288,15 @@ function showUserInvitationForUser(user) {
         appAlert("Admin access is required to create a user invitation.", "Access denied", "danger");
         return;
     }
-    if (!user || !Array.isArray(user.roles) || !user.roles.includes("coach")) {
-        appAlert("Select a Coach account to create an invitation.", "Not a Coach", "warning");
+    if (!user) {
+        appAlert("Select a valid user account to create an invitation.", "User not found", "warning");
         return;
     }
     const userName = String(user.name || "").trim();
-    const isCoach = true;
     const accessLink = "https://rhrufc-mini.pages.dev/club-check-in/";
     const initialAccessCode = "[INITIAL ACCESS CODE]";
     const sharedCoachPIN = "[SHARED COACH SETUP PIN]";
-    const setupStep = isCoach ? `2. For first-time setup, enter the shared Coach setup PIN.\n3.` : "2.";
-    const remainingSteps = isCoach
-        ? "4. If asked to approve or register this device, contact the Admin before continuing.\n5. Sign in with your personal PIN. Your assigned age group(s) will be available."
-        : "3. If asked to approve or register this device, contact the Admin before continuing.\n4. Sign in with your personal PIN.";
-    const message = `Hi ${userName},\n\nYou have been invited to use Rushden & Higham RUFC Club Check-In.\n\nInitial access link:\n${accessLink}\n\nRegistered name: ${userName}\nInitial access code: ${initialAccessCode}${isCoach ? `\nShared Coach setup PIN: ${sharedCoachPIN}` : ""}\n\nInstructions for the Coach\n1. Open the link above and enter the name registered by the Admin.\n${setupStep} Create and confirm a personal PIN (6–12 digits). Keep it private.\n${remainingSteps}`;
+    const message = `Hi ${userName},\n\nYou have been invited to use Rushden & Higham RUFC Club Check-In.\n\nInitial access link:\n${accessLink}\n\nRegistered name: ${userName}\nInitial access code: ${initialAccessCode}\nShared Coach setup PIN: ${sharedCoachPIN}\n\nInstructions for the User\n1. Open the link above and enter the name registered by the Admin.\n2. For first-time setup, enter the shared Coach setup PIN.\n3. Create and confirm a personal PIN (6–12 digits). Keep it private.\n4. If asked to approve or register this device, contact the Admin before continuing.\n5. Sign in with your personal PIN. Your assigned age group(s) will be available.`;
     renderShell(`
         <div class="card">
             <button class="back-button" onclick="showUserManagement()">← Back to User Management</button>
@@ -311,7 +306,7 @@ function showUserInvitationForUser(user) {
                 <strong>Invitation details</strong>
                 <p><strong>User name:</strong> ${escapeHTML(userName)}</p>
                 <p><strong>Initial access code:</strong> ${initialAccessCode}</p>
-                ${isCoach ? `<p><strong>Shared Coach setup PIN:</strong> ${sharedCoachPIN}</p>` : ""}
+                <p><strong>Shared Coach setup PIN:</strong> ${sharedCoachPIN}</p>
                 <small>Codes are placeholders for now. Replace them when the access-code workflow is ready.</small>
             </div>
             <div class="info-box">
