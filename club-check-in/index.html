@@ -3371,7 +3371,7 @@ async function showNewSeason() {
     if (previewResult.error || !previewResult.data) {
         console.error("Unable to load season rollover preview:", previewResult.error);
         await appAlert(
-            "Unable to load the current coach assignments for review. No changes have been made.",
+            "Unable to load the current assignments for review. No changes have been made.",
             "Unable to load rollover review",
             "danger"
         );
@@ -3379,11 +3379,12 @@ async function showNewSeason() {
     }
 
     window.seasonRolloverPreview = previewResult.data;
-
     const preview = window.seasonRolloverPreview;
     const nextSeason = getNextSeason(preview.current_season || currentSeason);
-    const groups = Array.isArray(preview.age_groups) ? preview.age_groups : [];
+    const allGroups = Array.isArray(preview.age_groups) ? preview.age_groups : [];
+    const groups = allGroups.filter(group => group.active === true);
     const coaches = Array.isArray(preview.coaches) ? preview.coaches : [];
+    const firstAiders = Array.isArray(preview.first_aiders) ? preview.first_aiders : [];
 
     if (!preview.current_season || preview.current_season !== currentSeason) {
         await appAlert(
@@ -3394,40 +3395,67 @@ async function showNewSeason() {
         return;
     }
 
-    const groupById = new Map(groups.map(group => [Number(group.id), group]));
+    const groupById = new Map(allGroups.map(group => [Number(group.id), group]));
+    const activeGroupById = new Map(groups.map(group => [Number(group.id), group]));
 
     const coachCards = coaches.map(coach => {
         const currentIds = (coach.current_age_group_ids || []).map(Number);
         const proposedIds = [];
-
         currentIds.forEach(groupId => {
             const currentGroup = groupById.get(groupId);
-            const nextGroup = currentGroup && groupById.get(Number(currentGroup.next_age_group_id));
-
-            // If the configured next group is inactive, keep the current assignment
-            // as the safe default and explicitly flag it for Senior review.
-            if (nextGroup) {
-                proposedIds.push(Number(nextGroup.id));
-            } else {
-                proposedIds.push(groupId);
-            }
+            const nextGroup = currentGroup && activeGroupById.get(Number(currentGroup.next_age_group_id));
+            proposedIds.push(nextGroup ? Number(nextGroup.id) : groupId);
         });
-
         const uniqueProposed = [...new Set(proposedIds)];
         const currentNames = currentIds.map(id => {
             const group = groupById.get(id);
-            return group ? group.name : "Unknown group";
+            return group ? (group.display_name || group.name) : "Unknown group";
         });
         const requiresReview = currentIds.some(id => {
             const group = groupById.get(id);
-            return !group || !groupById.has(Number(group.next_age_group_id));
+            return !group || !activeGroupById.has(Number(group.next_age_group_id));
         });
+        return { ...coach, currentIds, proposedIds: uniqueProposed, currentNames, requiresReview };
+    });
 
+    const firstAiderCards = firstAiders.map(volunteer => {
+        const currentAssignments = Array.isArray(volunteer.assignments) ? volunteer.assignments : [];
+        const proposed = [];
+        currentAssignments.forEach(assignment => {
+            const currentId = Number(assignment.age_group_id);
+            const currentGroup = groupById.get(currentId);
+            const nextGroup = currentGroup && activeGroupById.get(Number(currentGroup.next_age_group_id));
+            const targetId = nextGroup ? Number(nextGroup.id) :
+                (activeGroupById.has(currentId) ? currentId : null);
+            if (targetId === null) return;
+            const existing = proposed.find(item => item.age_group_id === targetId);
+            if (!existing) {
+                proposed.push({
+                    age_group_id: targetId,
+                    is_main: assignment.is_main === true,
+                    source_age_group_id: currentId
+                });
+            } else if (assignment.is_main === true) {
+                existing.is_main = true;
+                existing.source_age_group_id = currentId;
+            }
+        });
+        const main = proposed.find(item => item.is_main);
+        const currentNames = currentAssignments.map(assignment => {
+            const group = groupById.get(Number(assignment.age_group_id));
+            return (assignment.is_main ? "Main: " : "Shared: ") +
+                (group ? (group.display_name || group.name) : "Unknown group");
+        });
+        const requiresReview = currentAssignments.some(assignment => {
+            const group = groupById.get(Number(assignment.age_group_id));
+            return !group || !activeGroupById.has(Number(group.next_age_group_id));
+        }) || !main;
         return {
-            ...coach,
-            currentIds,
-            proposedIds: uniqueProposed,
+            ...volunteer,
+            currentAssignments,
             currentNames,
+            proposed,
+            proposedMainId: main ? main.age_group_id : null,
             requiresReview
         };
     });
@@ -3435,47 +3463,33 @@ async function showNewSeason() {
     const playerProgression = ageGroups.map(ageGroup => {
         const count = getActivePlayers(ageGroup).length;
         if (!count) return "";
-
         const next = getNextAgeGroup(ageGroup);
         const nextGroup = ageGroupData.find(group => group.age_group === next);
         const nextActive = Boolean(nextGroup && nextGroup.active);
-
         return `
             <div class="promotion-row ${next && !nextActive ? "warning-box" : ""}">
-                <span>
-                    ${escapeHTML(ageGroup)}
-                    →
-                    ${nextActive
-                        ? escapeHTML(next)
-                        : "Leaving Active Register"}
-                </span>
+                <span>${escapeHTML(ageGroup)} → ${nextActive ? escapeHTML(next) : "Leaving Active Register"}</span>
                 <strong>${count}</strong>
             </div>
         `;
     }).join("");
 
     const coachReview = coachCards.length
-        ? coachCards.map((coach, index) => `
-            <div class="list-row season-coach-card"
-                 data-person-id="${escapeHTML(coach.person_id)}">
+        ? coachCards.map(coach => `
+            <div class="list-row season-coach-card" data-person-id="${escapeHTML(coach.person_id)}">
                 <div class="list-title">${escapeHTML(coach.name)}</div>
-                <div class="list-sub">
-                    Current assignments: ${escapeHTML(coach.currentNames.join(", ") || "None")}
-                </div>
+                <div class="list-sub">Current assignments: ${escapeHTML(coach.currentNames.join(", ") || "None")}</div>
                 ${coach.requiresReview ? `
                     <div class="info-box warning-box">
                         One or more current groups have no active configured next group.
-                        The current assignment has been retained as the suggested option.
-                        Please review it below.
+                        The current assignment has been retained where possible. Please review below.
                     </div>
                 ` : ""}
                 <div class="list-sub"><strong>New season assignments</strong></div>
                 <div class="age-grid">
                     ${groups.map(group => `
                         <label class="age-option">
-                            <input
-                                type="checkbox"
-                                class="season-coach-group"
+                            <input type="checkbox" class="season-coach-group"
                                 data-age-group-id="${Number(group.id)}"
                                 ${coach.proposedIds.includes(Number(group.id)) ? "checked" : ""}>
                             ${escapeHTML(group.display_name || group.name)}
@@ -3486,51 +3500,82 @@ async function showNewSeason() {
         `).join("")
         : `<div class="info-box">There are no active coaches with the Coach role to review.</div>`;
 
+    const firstAiderReview = firstAiderCards.length
+        ? firstAiderCards.map(volunteer => `
+            <div class="list-row season-first-aider-card" data-volunteer-id="${Number(volunteer.volunteer_id)}">
+                <div class="list-title">${escapeHTML(volunteer.name)} ${volunteer.is_dummy ? '<span class="fa-dummy">DUMMY</span>' : ''}</div>
+                <div class="list-sub">Current cover: ${escapeHTML(volunteer.currentNames.join(", ") || "No assignments")}</div>
+                ${volunteer.requiresReview ? `
+                    <div class="info-box warning-box">
+                        One or more assignments have no active configured next age group.
+                        Review the main and shared cover below before continuing.
+                    </div>
+                ` : ""}
+                <div class="list-sub"><strong>New season main age group</strong></div>
+                <div class="age-grid">
+                    ${groups.map(group => `
+                        <label class="age-option">
+                            <input type="radio" name="season-fa-main-${Number(volunteer.volunteer_id)}"
+                                class="season-fa-main" value="${Number(group.id)}"
+                                ${volunteer.proposedMainId === Number(group.id) ? "checked" : ""}>
+                            ${escapeHTML(group.display_name || group.name)}
+                        </label>
+                    `).join("")}
+                </div>
+                <div class="list-sub"><strong>Additional/shared cover</strong></div>
+                <div class="age-grid">
+                    ${groups.map(group => `
+                        <label class="age-option">
+                            <input type="checkbox" class="season-fa-shared"
+                                data-age-group-id="${Number(group.id)}"
+                                ${volunteer.proposed.some(item => !item.is_main && item.age_group_id === Number(group.id)) ? "checked" : ""}>
+                            ${escapeHTML(group.display_name || group.name)}
+                        </label>
+                    `).join("")}
+                </div>
+            </div>
+        `).join("")
+        : `<div class="info-box">There are no active first-aider volunteers to review.</div>`;
+
     renderShell(`
         <div class="card">
             <button class="back-button" onclick="showSeniorDashboard()">← Back to Dashboard</button>
-
             <h2>Start New Season</h2>
-            <div class="subtitle">Review player progression and coach assignments before starting the new season.</div>
-
+            <div class="subtitle">Review player progression, coach assignments and first-aider cover before starting the new season.</div>
             <div class="info-box warning-box">
                 <strong>Current season:</strong> ${escapeHTML(preview.current_season)}
-                <br><br>
-                <strong>New season:</strong> ${escapeHTML(nextSeason)}
+                <br><br><strong>New season:</strong> ${escapeHTML(nextSeason)}
             </div>
-
             <h3>Player Progression</h3>
             ${playerProgression || '<div class="info-box">No active players require progression.</div>'}
-
             <div class="info-box danger-box">
-                <strong>Player records and history are retained.</strong>
-                <br><br>
+                <strong>Player records and history are retained.</strong><br><br>
                 Players move to their configured next age group only where that group is active.
                 Players without an active next group leave the active register; they are not deleted.
             </div>
-
             <h3>Coach Assignments</h3>
             <div class="subtitle">
-                Each current assignment is proposed to move to its configured next active age group.
-                Review each coach individually. Select or clear groups to set the final assignments.
+                Each current coach assignment is proposed to move to its configured next active age group.
+                Review each coach individually. Every active Coach must finish with at least one active group.
             </div>
-
             ${coachReview}
-
-            <div class="info-box">
-                Coach roles and Admin roles are not changed. Each active Coach must finish with at least one active age-group assignment.
-                Duplicate destination groups are automatically combined.
+            <h3>First-Aider Cover</h3>
+            <div class="subtitle">
+                Main and additional/shared cover are reviewed separately. Each active first aider must have exactly one main age group.
+                Each assignment moves to its configured next active age group where available. If no active next group exists,
+                the current active group is suggested and flagged for review. Additional/shared cover does not count as main cover.
             </div>
-
-            <button class="blue-button" onclick="confirmNewSeason()">
-                Review and Confirm New Season
-            </button>
+            ${firstAiderReview}
+            <div class="info-box">
+                Coach roles and Admin roles are not changed. First-aider volunteers remain separate from user accounts.
+                All player, coach and first-aider changes are committed together; if validation fails, nothing is changed.
+            </div>
+            <button class="blue-button" onclick="confirmNewSeason()">Review and Confirm New Season</button>
         </div>
     `);
 }
 
 async function confirmNewSeason() {
-
     const preview = window.seasonRolloverPreview;
     if (!preview || preview.current_season !== currentSeason) {
         await appAlert(
@@ -3541,16 +3586,14 @@ async function confirmNewSeason() {
         return;
     }
 
-    const cards = [...document.querySelectorAll(".season-coach-card")];
+    const coachCards = [...document.querySelectorAll(".season-coach-card")];
     const finalAssignments = [];
-
-    for (const card of cards) {
+    for (const card of coachCards) {
         const personId = card.dataset.personId;
         const selectedIds = [...card.querySelectorAll(".season-coach-group:checked")]
             .map(input => Number(input.dataset.ageGroupId))
             .filter(Number.isInteger)
             .sort((a, b) => a - b);
-
         if (!selectedIds.length) {
             await appAlert(
                 "Every active coach must have at least one age group. Please review " +
@@ -3560,10 +3603,51 @@ async function confirmNewSeason() {
             );
             return;
         }
+        finalAssignments.push({ person_id: personId, age_group_ids: [...new Set(selectedIds)] });
+    }
 
-        finalAssignments.push({
-            person_id: personId,
-            age_group_ids: [...new Set(selectedIds)]
+    const firstAiderCards = [...document.querySelectorAll(".season-first-aider-card")];
+    const finalFirstAiders = [];
+    for (const card of firstAiderCards) {
+        const volunteerId = Number(card.dataset.volunteerId);
+        const mainInput = card.querySelector(".season-fa-main:checked");
+        if (!mainInput) {
+            await appAlert(
+                "Select one main age group for " + (card.querySelector(".list-title")?.textContent || "this first aider") + ".",
+                "Main cover required",
+                "warning"
+            );
+            return;
+        }
+        const mainId = Number(mainInput.value);
+        const assignments = [{ age_group_id: mainId, is_main: true, source_age_group_id: null }];
+        const sharedIds = [...card.querySelectorAll(".season-fa-shared:checked")]
+            .map(input => Number(input.dataset.ageGroupId))
+            .filter(id => Number.isInteger(id) && id !== mainId);
+        const original = (preview.first_aiders || []).find(item => Number(item.volunteer_id) === volunteerId);
+        const originalAssignments = original?.assignments || [];
+        const groups = (preview.age_groups || []).filter(group => group.active === true);
+        const sourceFor = (targetId, isMain) => {
+            const current = originalAssignments.find(assignment => {
+                const currentGroup = (preview.age_groups || []).find(group => Number(group.id) === Number(assignment.age_group_id));
+                const nextGroup = currentGroup && groups.find(group => Number(group.id) === Number(currentGroup.next_age_group_id));
+                const proposedId = nextGroup ? Number(nextGroup.id) :
+                    (groups.some(group => Number(group.id) === Number(assignment.age_group_id)) ? Number(assignment.age_group_id) : null);
+                return proposedId === targetId && (assignment.is_main === true) === isMain;
+            });
+            return current ? Number(current.age_group_id) : null;
+        };
+        assignments[0].source_age_group_id = sourceFor(mainId, true);
+        sharedIds.sort((a, b) => a - b).forEach(id => {
+            assignments.push({
+                age_group_id: id,
+                is_main: false,
+                source_age_group_id: sourceFor(id, false)
+            });
+        });
+        finalFirstAiders.push({
+            volunteer_id: volunteerId,
+            assignments: assignments.sort((a, b) => a.age_group_id - b.age_group_id)
         });
     }
 
@@ -3573,696 +3657,52 @@ async function confirmNewSeason() {
             age_group_ids: [...(coach.current_age_group_ids || [])].map(Number).sort((a, b) => a - b)
         }))
         .sort((a, b) => a.person_id.localeCompare(b.person_id));
-
     finalAssignments.sort((a, b) => a.person_id.localeCompare(b.person_id));
+
+    const firstAidersExpected = (preview.first_aiders || [])
+        .map(volunteer => ({
+            volunteer_id: Number(volunteer.volunteer_id),
+            assignments: [...(volunteer.assignments || [])]
+                .map(item => ({
+                    age_group_id: Number(item.age_group_id),
+                    is_main: item.is_main === true
+                }))
+                .sort((a, b) => a.age_group_id - b.age_group_id)
+        }))
+        .sort((a, b) => a.volunteer_id - b.volunteer_id);
+    finalFirstAiders.sort((a, b) => a.volunteer_id - b.volunteer_id);
 
     const nextSeason = getNextSeason(preview.current_season);
     const coachChanges = finalAssignments.filter(finalCoach => {
         const oldCoach = expected.find(item => item.person_id === finalCoach.person_id);
         return !oldCoach || JSON.stringify(oldCoach.age_group_ids) !== JSON.stringify(finalCoach.age_group_ids);
     }).length;
+    const firstAiderChanges = finalFirstAiders.filter(finalVolunteer => {
+        const oldVolunteer = firstAidersExpected.find(item => item.volunteer_id === finalVolunteer.volunteer_id);
+        const cleanFinal = finalVolunteer.assignments.map(({ age_group_id, is_main }) => ({ age_group_id, is_main }));
+        return !oldVolunteer || JSON.stringify(oldVolunteer.assignments) !== JSON.stringify(cleanFinal);
+    }).length;
 
     const confirmed = await appConfirm(
         "Start season " + nextSeason + "?\n\n" +
         "Player progression will be applied.\n" +
         "Coach assignments for " + finalAssignments.length + " active coach(es) will be saved, including " +
-        coachChanges + " changed assignment set(s).\n\n" +
+        coachChanges + " changed assignment set(s).\n" +
+        "First-aider cover for " + finalFirstAiders.length + " active volunteer(s) will be saved, including " +
+        firstAiderChanges + " changed assignment set(s).\n\n" +
         "All changes are applied together. If validation fails, nothing will be changed.",
         "Confirm new season",
         "Start new season"
     );
-
     if (!confirmed) return;
 
     await performNewSeason(nextSeason, {
         expected,
-        final: finalAssignments
+        final: finalAssignments,
+        first_aiders_expected: firstAidersExpected,
+        first_aiders_final: finalFirstAiders
     }, preview.current_season);
 }
-
-/* =========================================================
-   PIN MANAGEMENT
-   ========================================================= */
-
-function showPINManagement() {
-
-    renderShell(`
-
-        <div class="card">
-
-            <button
-                class="back-button"
-                onclick="showSeniorDashboard()">
-
-                ← Back to Dashboard
-
-            </button>
-
-            <h2>
-                Manage PINs
-            </h2>
-
-            <div class="subtitle">
-
-                Admins can change both access PINs.
-
-            </div>
-
-            <div class="list-row">
-
-                <div class="list-title">
-                    Coach PIN
-                </div>
-
-                <div class="list-sub">
-                    Used by coaches to access registers.
-                </div>
-
-                <br>
-
-                <button
-                    class="secondary-button"
-                    onclick="showChangePIN('coach')">
-
-                    Change Coach PIN
-
-                </button>
-
-            </div>
-
-            <div class="list-row">
-
-                <div class="list-title">
-                    Admin PIN
-                </div>
-
-                <div class="list-sub">
-                    Used for full club access.
-                </div>
-
-                <br>
-
-                <button
-                    class="secondary-button"
-                    onclick="showChangePIN('senior')">
-
-                    Change Admin PIN
-
-                </button>
-
-            </div>
-
-        </div>
-
-    `);
-
-}
-
-function showChangePIN(
-    type
-) {
-
-    const title =
-        type === "coach"
-        ? "Change Coach PIN"
-        : "Change Admin PIN";
-
-    renderShell(`
-
-        <div class="card">
-
-            <button
-                class="back-button"
-                onclick="showPINManagement()">
-
-                ← Back to Manage PINs
-
-            </button>
-
-            <h2>
-                ${title}
-            </h2>
-
-            <div class="form-group">
-
-                <label class="title">
-                    Current Admin PIN
-                </label>
-
-                <input
-                    id="currentSeniorPIN"
-                    class="pin-input"
-                    type="password"
-                    inputmode="numeric"
-                    maxlength="8">
-
-            </div>
-
-            <div class="form-group">
-
-                <label class="title">
-                    New PIN
-                </label>
-
-                <input
-                    id="newPIN"
-                    class="pin-input"
-                    type="password"
-                    inputmode="numeric"
-                    maxlength="8">
-
-            </div>
-
-            <div class="form-group">
-
-                <label class="title">
-                    Confirm New PIN
-                </label>
-
-                <input
-                    id="confirmPIN"
-                    class="pin-input"
-                    type="password"
-                    inputmode="numeric"
-                    maxlength="8">
-
-            </div>
-
-            <div id="changePINError" class="error"></div>
-
-            <button
-                class="green-button"
-                onclick="changePIN('${type}')">
-
-                Save New PIN
-
-            </button>
-
-        </div>
-
-    `);
-
-}
-
-async function changePIN(
-    type
-) {
-
-    const currentSeniorPIN =
-        document.getElementById(
-            "currentSeniorPIN"
-        ).value;
-
-    const newPIN =
-        document.getElementById(
-            "newPIN"
-        ).value;
-
-    const confirmPIN =
-        document.getElementById(
-            "confirmPIN"
-        ).value;
-
-    const error =
-        document.getElementById(
-            "changePINError"
-        );
-
-    error.textContent = "";
-
-    if (
-        !currentSeniorPIN ||
-        !newPIN ||
-        !confirmPIN
-    ) {
-
-        error.textContent =
-            "Please complete all PIN fields.";
-
-        return;
-
-    }
-
-    if (
-        newPIN !== confirmPIN
-    ) {
-
-        error.textContent =
-            "The PINs do not match.";
-
-        return;
-
-    }
-
-    if (
-        !/^\d+$/.test(currentSeniorPIN) ||
-        !/^\d+$/.test(newPIN)
-    ) {
-
-        error.textContent =
-            "PINs must contain numbers only.";
-
-        return;
-
-    }
-
-    if (
-        newPIN.length < 4 ||
-        newPIN.length > 8
-    ) {
-
-        error.textContent =
-            "PIN must be between 4 and 8 digits.";
-
-        return;
-
-    }
-
-    const {
-        data,
-        error: supabaseError
-    } =
-        await supabaseClient.rpc(
-            "change_access_code",
-            {
-                current_senior_code:
-                    currentSeniorPIN,
-
-                code_type:
-                    type,
-
-                new_code:
-                    newPIN
-            }
-        );
-
-    if (
-        supabaseError
-    ) {
-
-        console.error(
-            "PIN change error:",
-            supabaseError
-        );
-
-        error.textContent =
-            "Unable to change the PIN.";
-
-        return;
-
-    }
-
-    if (
-        data !== true
-    ) {
-
-        error.textContent =
-            "The current Admin PIN is incorrect.";
-
-        return;
-
-    }
-
-    await appAlert(
-        type === "coach"
-            ? "Coach PIN changed successfully."
-            : "Admin PIN changed successfully.",
-        "PIN changed",
-        "success"
-    );
-
-    showPINManagement();
-
-}
-
-/* =========================================================
-   PWA INSTALLATION ID
-   ========================================================= */
-
-function getInstallationID() {
-
-    let installationID =
-        localStorage.getItem(
-            "installationID"
-        );
-
-    if (!installationID) {
-
-        installationID =
-            "INSTALL-" +
-            crypto.randomUUID();
-
-        localStorage.setItem(
-            "installationID",
-            installationID
-        );
-
-    }
-
-    setInstallationRequestHeader(installationID);
-
-    return installationID;
-
-}
-
-/* =========================================================
-   CHECK PWA ACCESS
-   ========================================================= */
-
-async function checkInstallationAccess() {
-
-    const installationID = getInstallationID();
-
-    const { data, error } =
-        await supabaseClient.rpc(
-            "verify_installation_access",
-            {
-                requested_installation_id:
-                    installationID
-            }
-        );
-
-    if (error) {
-
-        console.error(
-            "Installation access check failed:",
-            error
-        );
-
-        // An RPC error does not prove access has been revoked.
-        return null;
-    }
-
-    // A user ID means access is authorised.
-    // Null means the installation or user is inactive.
-    return typeof data === "string" && data.length > 0;
-}
-
-/* =========================================================
-   AUTOMATIC INSTALLATION ACCESS MONITOR
-   ========================================================= */
-
-let installationAccessInterval = null;
-let installationAccessCheckRunning = false;
-
-function startInstallationAccessMonitoring() {
-    if (installationAccessInterval !== null) {
-        return;
-    }
-
-    installationAccessInterval = setInterval(async () => {
-        // Avoid overlapping checks.
-        if (installationAccessCheckRunning) {
-            return;
-        }
-
-        // Only revoke an active Coach or Senior session.
-        if (
-            !currentRole ||
-            (!currentAccessPIN && !currentSeniorPIN)
-        ) {
-            return;
-        }
-
-        installationAccessCheckRunning = true;
-
-        try {
-            const authorised = await checkInstallationAccess();
-
-            // A temporary error is unknown, not confirmed revocation.
-            if (authorised === null) {
-                return;
-            }
-
-            // Only a confirmed denial ends the current session.
-            if (authorised === false) {
-                showWelcome();
-
-                await appAlert(
-                    "Your access has been revoked or your account " +
-                    "deactivated. You have been logged out.",
-                    "Access revoked",
-                    "danger"
-                );
-            }
-        } catch (error) {
-            console.error(
-                "Automatic access monitoring failed:",
-                error
-            );
-        } finally {
-            installationAccessCheckRunning = false;
-        }
-    }, 30000);
-}
-
-/* =========================================================
-   INITIAL ACCESS
-   ========================================================= */
-
-function showInitialAccess() {
-
-    document.getElementById("app").innerHTML = `
-
-        <div class="screen">
-
-            <h1>Club Check-In</h1>
-
-            <h2>Initial Access</h2>
-
-            <p>
-                Enter the Initial Access Code and your
-                approved name to activate this device.
-            </p>
-
-            <input
-                type="password"
-                id="initialAccessCode"
-                placeholder="Initial Access Code"
-                autocomplete="off"
-            >
-
-            <input
-                type="text"
-                id="initialAccessName"
-                placeholder="Approved Name"
-                autocomplete="off"
-            >
-
-            <button onclick="initialisePWA()">
-                Activate Device
-            </button>
-
-            <p id="initialAccessMessage"></p>
-
-        </div>
-
-    `;
-}
-
-/* =========================================================
-   AUTHORISED STARTUP
-   ========================================================= */
-
-async function completeAuthorisedStartup() {
-
-    // 1. Load age groups before restoring saved data
-    const ageGroupsLoaded =
-        await loadAgeGroupsFromSupabase();
-
-    if (!ageGroupsLoaded) {
-        return false;
-    }
-
-    // 2. Restore local data only after authorisation
-    loadSavedData();
-
-    // 3. Load the current season
-    await loadCurrentSeasonFromSupabase();
-
-    // 4. Display the welcome screen and monitor access
-    showWelcome();
-    startInstallationAccessMonitoring();
-
-    return true;
-}
-
-/* =========================================================
-   INITIALISE PWA
-   ========================================================= */
-
-async function initialisePWA() {
-
-    const codeInput =
-        document.getElementById("initialAccessCode");
-
-    const nameInput =
-        document.getElementById("initialAccessName");
-
-    const message =
-        document.getElementById("initialAccessMessage");
-
-    const code = codeInput.value.trim();
-    const name = nameInput.value.trim();
-
-    if (!code || !name) {
-        message.textContent =
-            "Please enter the access code and approved name.";
-        return;
-    }
-
-    message.textContent = "Activating device...";
-
-    let installationID = getInstallationID();
-
-    let { data, error } = await supabaseClient.rpc(
-        "initialise_installation",
-        {
-            supplied_code: code,
-            supplied_name: name,
-            supplied_installation_id: installationID
-        }
-    );
-
-    // Recover from a duplicate installation ID
-    const duplicateInstallationID =
-        error &&
-        error.code === "23505" &&
-        (
-            (error.message || "").includes(
-                "installations_installation_id_key"
-            ) ||
-            (error.details || "").includes(
-                "installation_id"
-            )
-        );
-
-    if (duplicateInstallationID) {
-
-        console.warn(
-            "Previous installation ID already exists. Generating a replacement."
-        );
-
-        localStorage.removeItem("installationID");
-
-        installationID = getInstallationID();
-
-        const retry = await supabaseClient.rpc(
-            "initialise_installation",
-            {
-                supplied_code: code,
-                supplied_name: name,
-                supplied_installation_id: installationID
-            }
-        );
-
-        data = retry.data;
-        error = retry.error;
-    }
-
-    if (error) {
-
-        console.error(
-            "PWA initialisation failed:",
-            error
-        );
-
-        message.textContent =
-            "Unable to activate this device. Please try again.";
-
-        return;
-    }
-
-    if (data === "LOCKED") {
-        message.textContent = "This is locked now.";
-        return;
-    }
-
-    if (data === "ALREADY_INSTALLED") {
-
-        message.textContent =
-            "This user is already registered on another device. Please contact an Admin user.";
-
-        return;
-    }
-
-    if (!data) {
-
-        message.textContent =
-            "Invalid access code or approved name.";
-
-        return;
-    }
-
-    message.textContent =
-        "Device activated. Verifying access...";
-
-    // Verify the newly created installation before loading data
-    const installationAuthorised =
-        await checkInstallationAccess();
-
-    if (!installationAuthorised) {
-
-        message.textContent =
-            "Device activated, but access could not be verified. Please refresh the app or contact an Admin user.";
-
-        return;
-    }
-
-    // Use the same startup sequence as existing installations
-    const startupCompleted =
-        await completeAuthorisedStartup();
-
-    if (!startupCompleted) {
-
-        message.textContent =
-            "Device activated, but setup could not be completed. Please refresh the app and try again.";
-
-        return;
-    }
-}
-
-/* =========================================================
-   START
-   ========================================================= */
-
-(async function () {
-
-    const installationAuthorised =
-        await checkInstallationAccess();
-
-    // Confirmed access denial: show the activation screen.
-    if (installationAuthorised === false) {
-        showInitialAccess();
-        return;
-    }
-
-    // Temporary connection/RPC error: do not treat it as revocation.
-    // Protected startup remains blocked until access can be verified.
-    if (installationAuthorised === null) {
-        showWelcome();
-
-        await appAlert(
-            "Unable to verify this device's access. " +
-            "Check your connection and refresh the app.",
-            "Unable to verify access",
-            "warning"
-        );
-
-        return;
-    }
-
-    // Access confirmed: continue normal startup.
-    const startupCompleted =
-        await completeAuthorisedStartup();
-
-    if (!startupCompleted) {
-        console.error(
-            "Authorised startup could not be completed."
-        );
-    }
-
-})();
 
 </script>
 
